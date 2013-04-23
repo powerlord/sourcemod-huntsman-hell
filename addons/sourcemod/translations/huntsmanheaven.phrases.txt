@@ -1,0 +1,12 @@
+"Phrases"
+{
+	"jump_status"
+	{
+		"#format" "{1:i}"
+		"en"	"Jump charge: {1} percent. Look up and stand up to use super-jump."
+	}
+	"jump_status_2"
+	{
+		"en"	"Super Jump will be ready again in:"
+	}
+}

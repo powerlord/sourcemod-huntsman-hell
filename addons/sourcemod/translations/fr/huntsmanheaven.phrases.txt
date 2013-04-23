@@ -1,0 +1,11 @@
+﻿"Phrases"
+{
+	"jump_status"
+	{
+		"fr"	"Chargement du Saut: {1} pourcents. Dressez vous en rgardant vers le haut pour faire un super-saut."
+	}
+	"jump_status_2"
+	{
+		"fr"	"Le super saut sera de nouveau prêt dans"
+	}
+}

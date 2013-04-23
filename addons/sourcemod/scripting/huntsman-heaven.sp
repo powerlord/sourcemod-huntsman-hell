@@ -50,7 +50,7 @@ new bool:g_Arena = false;
 public OnPluginStart()
 {
 	CreateConVar("huntsmanheaven_version", VERSION, "Huntsman Heaven Version", FCVAR_NOTIFY|FCVAR_PLUGIN|FCVAR_DONTRECORD);
-	g_Cvar_Enabled = CreateConVar("huntsmanheaven_enabled", "0.0", "Enable Huntsman Heaven?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
+	g_Cvar_Enabled = CreateConVar("huntsmanheaven_enabled", "1.0", "Enable Huntsman Heaven?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
 	g_Cvar_Explode = CreateConVar("huntsmanheaven_explode", "1.0", "Should arrows explode when they hit something?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
 	g_Cvar_ExplodeRadius = CreateConVar("huntsmanheaven_exploderadius", "200.0", "If arrows explode, the radius of explosion in hammer units.", FCVAR_PLUGIN);
 	g_Cvar_ExplodeDamage = CreateConVar("huntsmanheaven_explodedamage", "50.0", "If arrows explode, the damage the explosion does.", FCVAR_PLUGIN);
@@ -62,6 +62,8 @@ public OnPluginStart()
 	HookEvent("arena_round_start", Event_RoundStart);
 	
 	jumpHUD = CreateHudSynchronizer();
+	LoadTranslations("huntsmanheaven.phrases");
+	AutoExecConfig(true, "huntsmanheaven");
 }
 
 public OnAllPluginsLoaded()
@@ -312,7 +314,7 @@ public Action:JumpTimer(Handle:hTimer)
 			continue;
 		}
 		
-		SetHudTextParams(-1.0, 0.88, 0.35, 255, 64, 64, 255);
+		SetHudTextParams(-1.0, 0.88, 0.35, 255, 255, 255, 255);
 		new buttons = GetClientButtons(i);
 		if (((buttons & IN_DUCK) || (buttons & IN_ATTACK2)) && (g_JumpCharge[i] >= 0) && !(buttons & IN_JUMP))
 		{

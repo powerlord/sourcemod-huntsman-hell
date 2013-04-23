@@ -12,8 +12,6 @@
 
 #define BOW "tf_weapon_compound_bow"
 #define ARROW "tf_projectile_arrow"
-#define RADIUS "200"
-#define DAMAGE "100"
 
 #define VERSION "1.0"
 
@@ -255,11 +253,20 @@ public HuntsmanSwitch(client, weapon)
 
 CheckSteamTools()
 {
-	if (g_Enabled && g_SteamTools)
+	if (!g_SteamTools)
+	{
+		return;
+	}
+	
+	if (g_Enabled)
 	{
 		new String:gamemode[32];
 		
 		Format(gamemode, sizeof(gamemode), "%s v.%d", "Huntsman Heaven", VERSION);
 		Steam_SetGameDescription(gamemode);
+	}
+	else
+	{
+		Steam_SetGameDescription("Team Fortress");
 	}
 }

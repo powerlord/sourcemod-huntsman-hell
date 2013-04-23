@@ -49,7 +49,6 @@ public OnPluginStart()
 	g_Cvar_SuperJump = CreateConVar("huntsmanheaven_superjump", "1.0", "Should super jump be enabled in Huntsman Heaven?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
 
 	HookEvent("player_spawn", Event_PlayerSpawn);
-	HookEvent("teamplay_round_win", Event_RoundEnd);
 }
 
 public OnAllPluginsLoaded()
@@ -84,15 +83,19 @@ public OnMapStart()
 	}
 }
 
+public OnConfigsExecuted()
+{
+	new bool:oldEnabled = g_Enabled;
+	g_Enabled = GetConVarBool(g_Cvar_Enabled);
+	if (oldEnabled != g_Enabled)
+	{
+		UpdateGameDsecription();
+	}
+}
+
 public OnClientConnected(client)
 {
 	SDKHook(client, SDKHook_WeaponSwitchPost, HuntsmanSwitch);
-}
-
-public Event_RoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
-{
-	g_Enabled = GetConVarBool(g_Cvar_Enabled);
-	CheckSteamTools();
 }
 
 public Event_PlayerSpawn(Handle:event, const String:name[], bool:dontBroadcast)
@@ -251,7 +254,7 @@ public HuntsmanSwitch(client, weapon)
 	}
 }
 
-CheckSteamTools()
+UpdateGameDsecription()
 {
 	if (!g_SteamTools)
 	{

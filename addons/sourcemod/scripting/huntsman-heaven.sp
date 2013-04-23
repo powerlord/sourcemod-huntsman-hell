@@ -13,6 +13,9 @@
 #define BOW "tf_weapon_compound_bow"
 #define ARROW "tf_projectile_arrow"
 
+#define JUMPCHARGETIME 1
+#define JUMPCHARGE (25 * JUMPCHARGETIME)
+
 #define VERSION "1.0"
 
 public Plugin:myinfo = 
@@ -24,7 +27,8 @@ public Plugin:myinfo =
 	url = "<- URL ->"
 }
 
-new String:g_SoundsExplode[][] = {"weapons/explode1.wav", "weapons/explode2.wav", "weapons/explode3.wav" };
+new String:g_Sounds_Explode[][] = {"weapons/explode1.wav", "weapons/explode2.wav", "weapons/explode3.wav" };
+new String:g_Sounds_Jump[][] = { "", "" };
 
 new Handle:g_Cvar_Enabled = INVALID_HANDLE;
 new Handle:g_Cvar_Explode = INVALID_HANDLE;
@@ -35,9 +39,13 @@ new Handle:g_Cvar_SuperJump = INVALID_HANDLE;
 
 new Handle:jumpHUD;
 
+new g_JumpCharge[MAXPLAYERS];
+
 new bool:g_Enabled = false;
 
 new bool:g_SteamTools = false;
+
+new bool:g_Arena = false;
 
 public OnPluginStart()
 {
@@ -50,6 +58,10 @@ public OnPluginStart()
 	g_Cvar_SuperJump = CreateConVar("huntsmanheaven_superjump", "1.0", "Should super jump be enabled in Huntsman Heaven?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
 
 	HookEvent("player_spawn", Event_PlayerSpawn);
+	HookEvent("teamplay_round_start", Event_RoundStart);
+	HookEvent("arena_round_start", Event_RoundStart);
+	
+	jumpHUD = CreateHudSynchronizer();
 }
 
 public OnAllPluginsLoaded()
@@ -80,10 +92,25 @@ public OnMapStart()
 		Steam_SetGameDescription("Team Fortress");
 	}
 
-	for (new i = 0; i < sizeof(g_SoundsExplode); ++i)
+	for (new i = 0; i < sizeof(g_Sounds_Explode); ++i)
 	{
-		PrecacheSound(g_SoundsExplode[i]);
+		PrecacheSound(g_Sounds_Explode[i]);
 	}
+	
+	for (new i = 0; i < sizeof(g_Sounds_Jump); ++i)
+	{
+		PrecacheSound(g_Sounds_Jump[i]);
+	}
+	
+	if (FindEntityByClassname(-1, "tf_logic_arena") != -1)
+	{
+		g_Arena = true;
+	}
+	else
+	{
+		g_Arena = false;
+	}
+	
 }
 
 public OnConfigsExecuted()
@@ -97,6 +124,17 @@ public OnClientConnected(client)
 {
 	SDKHook(client, SDKHook_WeaponSwitchPost, HuntsmanSwitch);
 }
+
+public Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
+{
+	if (!GetConVarBool(g_Cvar_SuperJump) || (g_Arena && StrEqual(name, "teamplay_round_start", false)))
+	{
+		return;
+	}
+	
+	CreateTimer(0.2, JumpTimer, _, TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
+}
+
 
 public Event_PlayerSpawn(Handle:event, const String:name[], bool:dontBroadcast)
 {
@@ -233,8 +271,8 @@ public Arrow_Explode(entity, other)
 	AcceptEntityInput(explosion, "Explode");
 	AcceptEntityInput(explosion, "Kill");
 	
-	new random = GetRandomInt(0, sizeof(g_SoundsExplode));
-	EmitSoundToAll(g_SoundsExplode[random], entity, SNDCHAN_WEAPON, _, _, _, _, _, origin);
+	new random = GetRandomInt(0, sizeof(g_Sounds_Explode));
+	EmitSoundToAll(g_Sounds_Explode[random], entity, SNDCHAN_WEAPON, _, _, _, _, _, origin);
 }
 
 public HuntsmanSwitch(client, weapon)
@@ -264,3 +302,56 @@ UpdateGameDescription()
 		Steam_SetGameDescription(gamemode);
 	}
 }
+
+public Action:JumpTimer(Handle:hTimer)
+{
+	for (new i = 1; i <= MaxClients; ++i)
+	{
+		if (!IsClientInGame(i))
+		{
+			continue;
+		}
+		
+		SetHudTextParams(-1.0, 0.88, 0.35, 255, 64, 64, 255);
+		new buttons = GetClientButtons(i);
+		if (((buttons & IN_DUCK) || (buttons & IN_ATTACK2)) && (g_JumpCharge[i] >= 0) && !(buttons & IN_JUMP))
+		{
+			if (g_JumpCharge[i] + 5 < JUMPCHARGE)
+			{
+				g_JumpCharge[i] += 5;
+			}
+			else
+			{
+				g_JumpCharge[i] = JUMPCHARGE;
+			}
+			
+			ShowSyncHudText(i, jumpHUD, "%t", "jump_status", g_JumpCharge[i]);
+		}
+		else if (g_JumpCharge[i] < 0)
+		{
+			g_JumpCharge[i] += 5;
+			ShowSyncHudText(i, jumpHUD, "%t", "jump_status_2", -g_JumpCharge[i]/20);
+		}
+		else
+		{
+			decl Float:ang[3];
+			GetClientEyeAngles(i, ang);
+			if ((ang[0] < -45.0) && (g_JumpCharge[i] > 1))
+			{
+				decl Float:pos[3];
+				decl Float:vel[3];
+				GetEntPropVector(i, Prop_Data, "m_vecVelocity", vel);
+				vel[2]=750 + g_JumpCharge[i] * 13.0;
+				SetEntProp(i, Prop_Send, "m_bJumping", 1);
+				vel[0] *= (1+Sine(float(g_JumpCharge[i]) * FLOAT_PI / 50));
+				vel[1] *= (1+Sine(float(g_JumpCharge[i]) * FLOAT_PI / 50));
+				TeleportEntity(i, NULL_VECTOR, NULL_VECTOR, vel);
+				g_JumpCharge[i]=-120;
+				
+				new random = GetRandomInt(0, sizeof(g_Sounds_Jump));
+				EmitSoundToAll(g_Sounds_Jump[random] , i, SNDCHAN_VOICE, SNDLEVEL_TRAFFIC, _, _, _, _, pos, NULL_VECTOR);
+			}
+		}
+	}
+}
+

@@ -33,6 +33,7 @@ new Handle:g_Cvar_ExplodeDamage = INVALID_HANDLE;
 new Handle:g_Cvar_FireArrows = INVALID_HANDLE;
 new Handle:g_Cvar_SuperJump = INVALID_HANDLE;
 
+new Handle:jumpHUD;
 
 new bool:g_Enabled = false;
 
@@ -74,9 +75,11 @@ public OnLibraryRemoved(const String:name[])
 
 public OnMapStart()
 {
-	g_Enabled = GetConVarBool(g_Cvar_Enabled);
-	CheckSteamTools();
-	
+	if (g_SteamTools)
+	{
+		Steam_SetGameDescription("Team Fortress");
+	}
+
 	for (new i = 0; i < sizeof(g_SoundsExplode); ++i)
 	{
 		PrecacheSound(g_SoundsExplode[i]);
@@ -85,12 +88,9 @@ public OnMapStart()
 
 public OnConfigsExecuted()
 {
-	new bool:oldEnabled = g_Enabled;
 	g_Enabled = GetConVarBool(g_Cvar_Enabled);
-	if (oldEnabled != g_Enabled)
-	{
-		UpdateGameDsecription();
-	}
+	
+	UpdateGameDescription();
 }
 
 public OnClientConnected(client)
@@ -254,22 +254,13 @@ public HuntsmanSwitch(client, weapon)
 	}
 }
 
-UpdateGameDsecription()
+UpdateGameDescription()
 {
-	if (!g_SteamTools)
-	{
-		return;
-	}
-	
-	if (g_Enabled)
+	if (g_SteamTools && g_Enabled)
 	{
 		new String:gamemode[32];
 		
 		Format(gamemode, sizeof(gamemode), "%s v.%d", "Huntsman Heaven", VERSION);
 		Steam_SetGameDescription(gamemode);
-	}
-	else
-	{
-		Steam_SetGameDescription("Team Fortress");
 	}
 }

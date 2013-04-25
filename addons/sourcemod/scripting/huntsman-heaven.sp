@@ -28,10 +28,11 @@ public Plugin:myinfo =
 }
 
 new String:g_Sounds_Explode[][] = {"weapons/explode1.wav", "weapons/explode2.wav", "weapons/explode3.wav" };
-new String:g_Sounds_Jump[][] = { "", "" };
+new String:g_Sounds_Jump[][] = { "vo/sniper_specialcompleted02.wav", "vo/sniper_specialcompleted17.wav", "vo/sniper_specialcompleted19.wav", "vo/sniper_laughshort01.wav", "vo/sniper_laughshort04.wav" };
 
 new Handle:g_Cvar_Enabled = INVALID_HANDLE;
 new Handle:g_Cvar_Explode = INVALID_HANDLE;
+new Handle:g_Cvar_ExplodeFire = INVALID_HANDLE;
 new Handle:g_Cvar_ExplodeRadius = INVALID_HANDLE;
 new Handle:g_Cvar_ExplodeDamage = INVALID_HANDLE;
 new Handle:g_Cvar_FireArrows = INVALID_HANDLE;
@@ -39,13 +40,21 @@ new Handle:g_Cvar_SuperJump = INVALID_HANDLE;
 
 new Handle:jumpHUD;
 
-new g_JumpCharge[MAXPLAYERS];
+new g_JumpCharge[MAXPLAYERS] = { 0, ... };
 
 new bool:g_Enabled = false;
 
 new bool:g_SteamTools = false;
 
 new bool:g_Arena = false;
+
+new bool:g_LateLoad = false;
+
+public APLRes:AskPluginLoad2(Handle:myself, bool:late, String:error[], err_max)
+{
+	g_LateLoad = late;
+	return APLRes_Success;
+}
 
 public OnPluginStart()
 {
@@ -54,12 +63,14 @@ public OnPluginStart()
 	g_Cvar_Explode = CreateConVar("huntsmanheaven_explode", "1.0", "Should arrows explode when they hit something?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
 	g_Cvar_ExplodeRadius = CreateConVar("huntsmanheaven_exploderadius", "200.0", "If arrows explode, the radius of explosion in hammer units.", FCVAR_PLUGIN);
 	g_Cvar_ExplodeDamage = CreateConVar("huntsmanheaven_explodedamage", "50.0", "If arrows explode, the damage the explosion does.", FCVAR_PLUGIN);
+	g_Cvar_ExplodeFire = CreateConVar("huntsmanheaven_explodefire", "1.0", "Should explosions catch players on fire?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
 	g_Cvar_FireArrows = CreateConVar("huntsmanheaven_firearrows", "1.0", "Should all arrows catch on fire in Huntsman Heaven?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
 	g_Cvar_SuperJump = CreateConVar("huntsmanheaven_superjump", "1.0", "Should super jump be enabled in Huntsman Heaven?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
 
 	HookEvent("player_spawn", Event_PlayerSpawn);
 	HookEvent("teamplay_round_start", Event_RoundStart);
 	HookEvent("arena_round_start", Event_RoundStart);
+	// HookEvent("post_inventory_application", Event_Inventory);
 	
 	jumpHUD = CreateHudSynchronizer();
 	LoadTranslations("huntsmanheaven.phrases");
@@ -89,11 +100,6 @@ public OnLibraryRemoved(const String:name[])
 
 public OnMapStart()
 {
-	if (g_SteamTools)
-	{
-		Steam_SetGameDescription("Team Fortress");
-	}
-
 	for (new i = 0; i < sizeof(g_Sounds_Explode); ++i)
 	{
 		PrecacheSound(g_Sounds_Explode[i]);
@@ -113,6 +119,27 @@ public OnMapStart()
 		g_Arena = false;
 	}
 	
+	if (g_LateLoad)
+	{
+		for (new i = 1; i <= MaxClients; ++i)
+		{
+			if (IsClientInGame(i))
+			{
+				//SDKHook(i, SDKHook_WeaponSwitchPost, HuntsmanSwitch);
+				SDKHook(i, SDKHook_OnTakeDamagePost, OnTakeDamagePost);
+			}
+		}
+		g_LateLoad = false;
+	}
+	CreateTimer(0.2, JumpTimer, _, TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
+}
+
+public OnMapEnd()
+{
+	if (g_Enabled && g_SteamTools)
+	{
+		Steam_SetGameDescription("Team Fortress");
+	}
 }
 
 public OnConfigsExecuted()
@@ -122,19 +149,28 @@ public OnConfigsExecuted()
 	UpdateGameDescription();
 }
 
-public OnClientConnected(client)
+public OnClientPutInServer(client)
 {
-	SDKHook(client, SDKHook_WeaponSwitchPost, HuntsmanSwitch);
+	//SDKHook(client, SDKHook_WeaponSwitchPost, HuntsmanSwitch);
+	SDKHook(client, SDKHook_OnTakeDamagePost, OnTakeDamagePost);
 }
 
 public Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
 {
+	if (!g_Enabled)
+	{
+		return;
+	}
+	
 	if (!GetConVarBool(g_Cvar_SuperJump) || (g_Arena && StrEqual(name, "teamplay_round_start", false)))
 	{
 		return;
 	}
 	
-	CreateTimer(0.2, JumpTimer, _, TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
+	for (new i = 1; i <= MaxClients; ++i)
+	{
+		g_JumpCharge[i] = 0;
+	}
 }
 
 
@@ -152,11 +188,60 @@ public Event_PlayerSpawn(Handle:event, const String:name[], bool:dontBroadcast)
 		return;
 	}
 	
-	new TFClassType:class = TF2_GetPlayerClass(client);
+	new TFClassType:class = TFClassType:GetEventInt(event, "class");
 	if (class != TFClass_Sniper)
 	{
 		TF2_SetPlayerClass(client, TFClass_Sniper);
 		TF2_RespawnPlayer(client);
+	}
+}
+
+public Event_Inventory(Handle:event, const String:name[], bool:dontBroadcast)
+{
+	if (!g_Enabled)
+	{
+		return;
+	}
+	
+	new client = GetClientOfUserId(GetEventInt(event, "userid"));
+	
+	if (TF2_GetPlayerClass(client) != TFClass_Sniper)
+	{
+		return;
+	}
+	
+	new secondary = GetPlayerWeaponSlot(client, TFWeaponSlot_Secondary);
+	if (secondary == -1)
+	{
+		new Handle:item = TF2Items_CreateItem(OVERRIDE_ALL);
+		TF2Items_SetClassname(item, "tf_weapon_jar");
+		TF2Items_SetItemIndex(item, 58);
+		TF2Items_SetLevel(item, 5);
+		TF2Items_SetQuality(item, 6);
+		TF2Items_SetNumAttributes(item, 2);
+		TF2Items_SetAttribute(item, 0, 56, 1.0);
+		TF2Items_SetAttribute(item, 1, 292, 4.0);
+		secondary = TF2Items_GiveNamedItem(client, item);
+		CloseHandle(item);
+		EquipPlayerWeapon(client, secondary);
+	}
+
+	new primary = GetPlayerWeaponSlot(client, TFWeaponSlot_Primary);
+	if (primary == -1)
+	{
+		new Handle:item = TF2Items_CreateItem(OVERRIDE_ALL);
+		TF2Items_SetClassname(item, "tf_weapon_compound_bow");
+		TF2Items_SetItemIndex(item, 56);
+		TF2Items_SetLevel(item, 10);
+		TF2Items_SetQuality(item, 6);
+		TF2Items_SetNumAttributes(item, 2);
+		TF2Items_SetAttribute(item, 0, 37, 0.5);
+		TF2Items_SetAttribute(item, 1, 328, 1.0);
+		primary = TF2Items_GiveNamedItem(client, item);
+		CloseHandle(item);
+		EquipPlayerWeapon(client, primary);
+		
+		//SetEntPropEnt(client, Prop_Data, "m_hActiveWeapon", primary);
 	}
 }
 
@@ -182,23 +267,25 @@ public Action:TF2Items_OnGiveNamedItem(client, String:classname[], iItemDefiniti
 		TF2Items_SetItemIndex(item, 58);
 		TF2Items_SetLevel(item, 5);
 		TF2Items_SetQuality(item, 6);
-		TF2Items_SetNumAttributes(item, 2);
 		TF2Items_SetAttribute(item, 0, 56, 1.0);
 		TF2Items_SetAttribute(item, 1, 292, 4.0);
+		TF2Items_SetNumAttributes(item, 2);
 		hItem = item;
+		
 		return Plugin_Changed;
 	}
-	else if (StrEqual(classname, "tf_weapon_sniperrifle") || StrEqual(classname, "tf_weapon_sniperrifle_decap"))
+	if (StrEqual(classname, "tf_weapon_sniperrifle") || StrEqual(classname, "tf_weapon_sniperrifle_decap"))
 	{
 		item = TF2Items_CreateItem(OVERRIDE_ALL);
 		TF2Items_SetClassname(item, "tf_weapon_compound_bow");
 		TF2Items_SetItemIndex(item, 56);
 		TF2Items_SetLevel(item, 10);
 		TF2Items_SetQuality(item, 6);
-		TF2Items_SetNumAttributes(item, 2);
 		TF2Items_SetAttribute(item, 0, 37, 0.5);
 		TF2Items_SetAttribute(item, 1, 328, 1.0);
+		TF2Items_SetNumAttributes(item, 2);
 		hItem = item;
+		
 		return Plugin_Changed;
 	}
 	
@@ -214,19 +301,49 @@ public OnEntityCreated(entity, const String:classname[])
 	
 	if (StrEqual(classname, ARROW))
 	{
-// We're testing lighting the bow itself for now
-/*
 		if (GetConVarBool(g_Cvar_FireArrows))
 		{
 			SDKHook(entity, SDKHook_SpawnPost, Arrow_Ignite);
 		}
-*/
 		if (GetConVarBool(g_Cvar_Explode))
 		{
 			SDKHook(entity, SDKHook_StartTouchPost, Arrow_Explode);
 		}
 	}
+	
+	if (StrEqual(classname, BOW))
+	{
+		new bool:success = SDKHookEx(entity, SDKHook_ReloadPost, Bow_Ignite);
+		PrintToChatAll("hooked %s : %d, success: %d", classname, entity, success);
+	}
+
 }
+
+public Bow_Ignite(weapon, bool:bSuccessful)
+{
+	PrintToChatAll("Attempting to ignite bow %d", weapon);
+
+	if (!bSuccessful)
+	{
+		return;
+	}
+	CreateTimer(1.0, Timer_BowIgnite, EntIndexToEntRef(weapon), TIMER_FLAG_NO_MAPCHANGE);
+	
+}
+
+public Action:Timer_BowIgnite(Handle:timer, any:weaponRef)
+{
+	new weapon = EntRefToEntIndex(weaponRef);
+	
+	if (weapon == INVALID_ENT_REFERENCE)
+	{
+		return Plugin_Continue;
+	}
+	Arrow_Ignite(weapon);
+	
+	return Plugin_Continue;
+}
+
 
 public Arrow_Ignite(entity)
 {
@@ -243,7 +360,7 @@ public Arrow_Explode(entity, other)
 	new Float:origin[3];
 	GetEntPropVector(entity, Prop_Send, "m_vecOrigin", origin);
 	
-	new owner = GetEntPropEnt(entity, Prop_Send, "m_hOwner");
+	new owner = GetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity");
 	new team = GetEntProp(entity, Prop_Send, "m_iTeamNum");
 	
 	new explosion = CreateEntityByName("env_explosion");
@@ -265,21 +382,52 @@ public Arrow_Explode(entity, other)
 	DispatchKeyValue(explosion, "iRadiusOverride", radiusString);
 	DispatchKeyValue(explosion, "TeamNum", teamString);
 	
-	SetEntProp(explosion, Prop_Data, "m_hOwnerEntity", owner);
+	SetEntPropEnt(explosion, Prop_Data, "m_hOwnerEntity", owner);
 	
 	TeleportEntity(explosion, origin, NULL_VECTOR, NULL_VECTOR);
 	DispatchSpawn(explosion);
 	
 	AcceptEntityInput(explosion, "Explode");
-	AcceptEntityInput(explosion, "Kill");
+	CreateTimer(0.1, Timer_DestroyExplosion, EntIndexToEntRef(explosion), TIMER_FLAG_NO_MAPCHANGE);
 	
-	new random = GetRandomInt(0, sizeof(g_Sounds_Explode));
+	new random = GetRandomInt(0, sizeof(g_Sounds_Explode)-1);
 	EmitSoundToAll(g_Sounds_Explode[random], entity, SNDCHAN_WEAPON, _, _, _, _, _, origin);
 }
 
+public Action:Timer_DestroyExplosion(Handle:timer, any:explosionRef)
+{
+	new explosion = EntRefToEntIndex(explosionRef);
+	if (explosion != INVALID_ENT_REFERENCE)
+	{
+		AcceptEntityInput(explosion, "Kill");
+	}
+	
+	return Plugin_Continue;
+}
+
+public OnTakeDamagePost(victim, attacker, inflictor, Float:damage, damagetype)
+{
+	if (!GetConVarBool(g_Cvar_ExplodeFire) || victim <= 0 || victim > MaxClients || !IsValidEntity(inflictor))
+	{
+		return;
+	}
+	
+	new String:classname[64];
+	if (GetEntityClassname(inflictor, classname, sizeof(classname)) && StrEqual(classname, "env_explosion"))
+	{
+		new owner = GetEntPropEnt(inflictor, Prop_Data, "m_hOwnerEntity");
+		if (owner <= 0 || owner > MaxClients)
+		{
+			return;
+		}
+		TF2_IgnitePlayer(victim, owner);
+	}
+}
+
+
 public HuntsmanSwitch(client, weapon)
 {
-	if (!g_Enabled || !GetConVarBool(g_Cvar_FireArrows))
+	if (!g_Enabled || !GetConVarBool(g_Cvar_FireArrows) || !IsValidEntity(weapon))
 	{
 		return;
 	}
@@ -300,7 +448,7 @@ UpdateGameDescription()
 	{
 		new String:gamemode[32];
 		
-		Format(gamemode, sizeof(gamemode), "%s v.%d", "Huntsman Heaven", VERSION);
+		Format(gamemode, sizeof(gamemode), "%s v.%s", "Huntsman Heaven", VERSION);
 		Steam_SetGameDescription(gamemode);
 	}
 }
@@ -327,7 +475,7 @@ public Action:JumpTimer(Handle:hTimer)
 				g_JumpCharge[i] = JUMPCHARGE;
 			}
 			
-			ShowSyncHudText(i, jumpHUD, "%t", "jump_status", g_JumpCharge[i]);
+			ShowSyncHudText(i, jumpHUD, "%t", "jump_status", g_JumpCharge[i]*4);
 		}
 		else if (g_JumpCharge[i] < 0)
 		{
@@ -350,8 +498,12 @@ public Action:JumpTimer(Handle:hTimer)
 				TeleportEntity(i, NULL_VECTOR, NULL_VECTOR, vel);
 				g_JumpCharge[i]=-120;
 				
-				new random = GetRandomInt(0, sizeof(g_Sounds_Jump));
-				EmitSoundToAll(g_Sounds_Jump[random] , i, SNDCHAN_VOICE, SNDLEVEL_TRAFFIC, _, _, _, _, pos, NULL_VECTOR);
+				new random = GetRandomInt(0, sizeof(g_Sounds_Jump)-1);
+				EmitSoundToAll(g_Sounds_Jump[random], i, SNDCHAN_VOICE, SNDLEVEL_TRAFFIC, _, _, _, _, pos);
+			}
+			else
+			{
+				g_JumpCharge[i] = 0;
 			}
 		}
 	}

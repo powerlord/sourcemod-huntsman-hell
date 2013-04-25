@@ -13,7 +13,6 @@ public Plugin:myinfo =
 
 public OnPluginStart()
 {
-	CreateConVar("huntsmanheaven_version", VERSION, "Huntsman Heaven Version", FCVAR_NOTIFY|FCVAR_PLUGIN|FCVAR_DONTRECORD);
 }
 
 public OnEntityCreated(entity, const String:classname[])

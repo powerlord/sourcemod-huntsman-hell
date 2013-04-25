@@ -7,6 +7,7 @@
 	}
 	"jump_status_2"
 	{
-		"en"	"Super Jump will be ready again in:"
+		"#format" "{1:i}"
+		"en"	"Super Jump will be ready again in: {1}"
 	}
 }

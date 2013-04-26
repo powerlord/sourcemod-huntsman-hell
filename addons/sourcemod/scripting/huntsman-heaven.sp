@@ -260,33 +260,9 @@ public Action:TF2Items_OnGiveNamedItem(client, String:classname[], iItemDefiniti
 		item = INVALID_HANDLE;
 	}
 	
-	if (StrEqual(classname, "tf_weapon_smg") || iItemDefinitionIndex == 57 || iItemDefinitionIndex == 231 || iItemDefinitionIndex == 642)
+	if (StrEqual(classname, "tf_weapon_smg") || iItemDefinitionIndex == 57 || iItemDefinitionIndex == 231 || iItemDefinitionIndex == 642|| StrEqual(classname, "tf_weapon_sniperrifle") || StrEqual(classname, "tf_weapon_sniperrifle_decap"))
 	{
-		item = TF2Items_CreateItem(OVERRIDE_ALL);
-		TF2Items_SetClassname(item, "tf_weapon_jar");
-		TF2Items_SetItemIndex(item, 58);
-		TF2Items_SetLevel(item, 5);
-		TF2Items_SetQuality(item, 6);
-		TF2Items_SetAttribute(item, 0, 56, 1.0);
-		TF2Items_SetAttribute(item, 1, 292, 4.0);
-		TF2Items_SetNumAttributes(item, 2);
-		hItem = item;
-		
-		return Plugin_Changed;
-	}
-	if (StrEqual(classname, "tf_weapon_sniperrifle") || StrEqual(classname, "tf_weapon_sniperrifle_decap"))
-	{
-		item = TF2Items_CreateItem(OVERRIDE_ALL);
-		TF2Items_SetClassname(item, "tf_weapon_compound_bow");
-		TF2Items_SetItemIndex(item, 56);
-		TF2Items_SetLevel(item, 10);
-		TF2Items_SetQuality(item, 6);
-		TF2Items_SetAttribute(item, 0, 37, 0.5);
-		TF2Items_SetAttribute(item, 1, 328, 1.0);
-		TF2Items_SetNumAttributes(item, 2);
-		hItem = item;
-		
-		return Plugin_Changed;
+		return Plugin_Handled;
 	}
 	
 	return Plugin_Continue;
@@ -299,8 +275,17 @@ public OnEntityCreated(entity, const String:classname[])
 		return;
 	}
 	
+// Reload and ReloadPost aren't working on my test server for Huntsman
+/*
+	if (StrEqual(classname, BOW))
+	{
+		new bool:success = SDKHookEx(entity, SDKHook_ReloadPost, Bow_Ignite);
+	}
+*/
+
 	if (StrEqual(classname, ARROW))
 	{
+		// ...since lighting the bow doesn't work, lets just light the arrows
 		if (GetConVarBool(g_Cvar_FireArrows))
 		{
 			SDKHook(entity, SDKHook_SpawnPost, Arrow_Ignite);
@@ -309,12 +294,6 @@ public OnEntityCreated(entity, const String:classname[])
 		{
 			SDKHook(entity, SDKHook_StartTouchPost, Arrow_Explode);
 		}
-	}
-	
-	if (StrEqual(classname, BOW))
-	{
-		new bool:success = SDKHookEx(entity, SDKHook_ReloadPost, Bow_Ignite);
-		PrintToChatAll("hooked %s : %d, success: %d", classname, entity, success);
 	}
 
 }

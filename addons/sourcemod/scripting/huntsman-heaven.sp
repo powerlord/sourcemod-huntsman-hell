@@ -70,7 +70,7 @@ public OnPluginStart()
 	HookEvent("player_spawn", Event_PlayerSpawn);
 	HookEvent("teamplay_round_start", Event_RoundStart);
 	HookEvent("arena_round_start", Event_RoundStart);
-	// HookEvent("post_inventory_application", Event_Inventory);
+	HookEvent("post_inventory_application", Event_Inventory);
 	
 	jumpHUD = CreateHudSynchronizer();
 	LoadTranslations("huntsmanheaven.phrases");

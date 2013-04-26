@@ -42,6 +42,8 @@ new Handle:jumpHUD;
 
 new g_JumpCharge[MAXPLAYERS] = { 0, ... };
 
+new Handle:g_ReplaceItems[MAXPLAYERS] = { INVALID_HANDLE, ... };
+
 new bool:g_Enabled = false;
 
 new bool:g_SteamTools = false;
@@ -71,6 +73,7 @@ public OnPluginStart()
 	HookEvent("teamplay_round_start", Event_RoundStart);
 	HookEvent("arena_round_start", Event_RoundStart);
 	HookEvent("post_inventory_application", Event_Inventory);
+	HookEvent("player_changeclass", Event_ChangeClass);
 	
 	jumpHUD = CreateHudSynchronizer();
 	LoadTranslations("huntsmanheaven.phrases");
@@ -140,6 +143,16 @@ public OnMapEnd()
 	{
 		Steam_SetGameDescription("Team Fortress");
 	}
+	
+	// Kill the item replacement timers
+	for (new i = 1; i <= MaxClients; ++i)
+	{
+		if (g_ReplaceItems[i] != INVALID_HANDLE)
+		{
+			KillTimer(g_ReplaceItems[i]);
+			g_ReplaceItems[i] = INVALID_HANDLE;
+		}
+	}
 }
 
 public OnConfigsExecuted()
@@ -173,8 +186,7 @@ public Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
 	}
 }
 
-
-public Event_PlayerSpawn(Handle:event, const String:name[], bool:dontBroadcast)
+public Event_ChangeClass(Handle:event, const String:name[], bool:dontBroadcast)
 {
 	if (!g_Enabled)
 	{
@@ -196,7 +208,7 @@ public Event_PlayerSpawn(Handle:event, const String:name[], bool:dontBroadcast)
 	}
 }
 
-public Event_Inventory(Handle:event, const String:name[], bool:dontBroadcast)
+public Event_PlayerSpawn(Handle:event, const String:name[], bool:dontBroadcast)
 {
 	if (!g_Enabled)
 	{
@@ -205,10 +217,48 @@ public Event_Inventory(Handle:event, const String:name[], bool:dontBroadcast)
 	
 	new client = GetClientOfUserId(GetEventInt(event, "userid"));
 	
-	if (TF2_GetPlayerClass(client) != TFClass_Sniper)
+	if (client <= 0 || client > MaxClients || !IsClientInGame(client))
 	{
 		return;
 	}
+	
+	new TFClassType:class = TFClassType:GetEventInt(event, "class");
+	if (class != TFClass_Sniper)
+	{
+		// Directions say param 3 is both ignored and to set it to false in a player spawn hook...
+		TF2_SetPlayerClass(client, TFClass_Sniper, false); 
+		TF2_RespawnPlayer(client);
+	}
+}
+
+public Event_Inventory(Handle:event, const String:name[], bool:dontBroadcast)
+{
+	if (!g_Enabled)
+	{
+		return;
+	}
+	
+	new userid = GetEventInt(event, "userid");
+	new client = GetClientOfUserId(userid);
+	
+	if (g_ReplaceItems[client] != INVALID_HANDLE)
+	{
+		KillTimer(g_ReplaceItems[client]);
+	}
+	
+	g_ReplaceItems[client] = CreateTimer(0.1, Timer_GiveItems, userid);
+	
+}
+
+public Action:Timer_GiveItems(Handle:timer, any:userid)
+{
+	new client = GetClientOfUserId(userid);
+	if (client == 0)
+	{
+		return Plugin_Continue;
+	}
+	
+	g_ReplaceItems[client] = INVALID_HANDLE;
 	
 	new secondary = GetPlayerWeaponSlot(client, TFWeaponSlot_Secondary);
 	if (secondary == -1)
@@ -241,8 +291,11 @@ public Event_Inventory(Handle:event, const String:name[], bool:dontBroadcast)
 		CloseHandle(item);
 		EquipPlayerWeapon(client, primary);
 		
+		//This is buggy, so we don't try it any more
 		//SetEntPropEnt(client, Prop_Data, "m_hActiveWeapon", primary);
 	}
+
+	return Plugin_Continue;
 }
 
 public Action:TF2Items_OnGiveNamedItem(client, String:classname[], iItemDefinitionIndex, &Handle:hItem)
@@ -260,6 +313,7 @@ public Action:TF2Items_OnGiveNamedItem(client, String:classname[], iItemDefiniti
 		item = INVALID_HANDLE;
 	}
 	
+	// Block SMG, shields, and sniper rifles
 	if (StrEqual(classname, "tf_weapon_smg") || iItemDefinitionIndex == 57 || iItemDefinitionIndex == 231 || iItemDefinitionIndex == 642|| StrEqual(classname, "tf_weapon_sniperrifle") || StrEqual(classname, "tf_weapon_sniperrifle_decap"))
 	{
 		return Plugin_Handled;
@@ -367,6 +421,7 @@ public Arrow_Explode(entity, other)
 	DispatchSpawn(explosion);
 	
 	AcceptEntityInput(explosion, "Explode");
+	// Destroy it after a tenth of a second so it still exists during OnTakeDamagePost
 	CreateTimer(0.1, Timer_DestroyExplosion, EntIndexToEntRef(explosion), TIMER_FLAG_NO_MAPCHANGE);
 	
 	new random = GetRandomInt(0, sizeof(g_Sounds_Explode)-1);

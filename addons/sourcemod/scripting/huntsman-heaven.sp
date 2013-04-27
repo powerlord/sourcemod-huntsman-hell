@@ -16,7 +16,7 @@
 #define JUMPCHARGETIME 1
 #define JUMPCHARGE (25 * JUMPCHARGETIME)
 
-#define VERSION "1.0"
+#define VERSION "1.1"
 
 public Plugin:myinfo = 
 {
@@ -35,6 +35,7 @@ new Handle:g_Cvar_Explode = INVALID_HANDLE;
 new Handle:g_Cvar_ExplodeFire = INVALID_HANDLE;
 new Handle:g_Cvar_ExplodeRadius = INVALID_HANDLE;
 new Handle:g_Cvar_ExplodeDamage = INVALID_HANDLE;
+new Handle:g_Cvar_ArrowCount = INVALID_HANDLE;
 new Handle:g_Cvar_FireArrows = INVALID_HANDLE;
 new Handle:g_Cvar_SuperJump = INVALID_HANDLE;
 
@@ -63,6 +64,7 @@ public OnPluginStart()
 	g_Cvar_ExplodeDamage = CreateConVar("huntsmanheaven_explodedamage", "50.0", "If arrows explode, the damage the explosion does.", FCVAR_PLUGIN);
 	g_Cvar_ExplodeFire = CreateConVar("huntsmanheaven_explodefire", "1.0", "Should explosions catch players on fire?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
 	g_Cvar_FireArrows = CreateConVar("huntsmanheaven_firearrows", "1.0", "Should all arrows catch on fire in Huntsman Heaven?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
+	g_Cvar_ArrowCount = CreateConVar("huntsmanheaven_arrowcount", "50.0", "Number of arrows to have in reserve to start?", FCVAR_PLUGIN, true, 0.0, true, 100.0);
 	g_Cvar_SuperJump = CreateConVar("huntsmanheaven_superjump", "1.0", "Should super jump be enabled in Huntsman Heaven?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
 
 	HookEvent("player_spawn", Event_PlayerSpawn);
@@ -253,13 +255,13 @@ public Event_Inventory(Handle:event, const String:name[], bool:dontBroadcast)
 		CloseHandle(item);
 		EquipPlayerWeapon(client, primary);
 		
-		//Ammo fix for Huntsman
-		new ammoOffset = GetEntProp(primary, Prop_Send, "m_iPrimaryAmmoType");
-		SetEntProp(client, Prop_Send, "m_iAmmo", 12, 4, ammoOffset);
-		
 		// Weapon is invisible if we do this
 		//SetEntPropEnt(client, Prop_Send, "m_hActiveWeapon", primary);
 	}
+	
+	//Set ammo count
+	new ammoOffset = GetEntProp(primary, Prop_Send, "m_iPrimaryAmmoType");
+	SetEntProp(client, Prop_Send, "m_iAmmo", GetConVarInt(g_Cvar_ArrowCount), 4, ammoOffset);
 }
 
 public Action:TF2Items_OnGiveNamedItem(client, String:classname[], iItemDefinitionIndex, &Handle:hItem)

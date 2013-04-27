@@ -42,13 +42,9 @@ new Handle:jumpHUD;
 
 new g_JumpCharge[MAXPLAYERS] = { 0, ... };
 
-new Handle:g_ReplaceItems[MAXPLAYERS] = { INVALID_HANDLE, ... };
-
 new bool:g_Enabled = false;
 
 new bool:g_SteamTools = false;
-
-new bool:g_Arena = false;
 
 new bool:g_LateLoad = false;
 
@@ -71,7 +67,7 @@ public OnPluginStart()
 
 	HookEvent("player_spawn", Event_PlayerSpawn);
 	HookEvent("teamplay_round_start", Event_RoundStart);
-	HookEvent("arena_round_start", Event_RoundStart);
+	//HookEvent("arena_round_start", Event_RoundStart);
 	HookEvent("post_inventory_application", Event_Inventory);
 	HookEvent("player_changeclass", Event_ChangeClass);
 	
@@ -112,29 +108,6 @@ public OnMapStart()
 	{
 		PrecacheSound(g_Sounds_Jump[i]);
 	}
-	
-	if (FindEntityByClassname(-1, "tf_logic_arena") != -1)
-	{
-		g_Arena = true;
-	}
-	else
-	{
-		g_Arena = false;
-	}
-	
-	if (g_LateLoad)
-	{
-		for (new i = 1; i <= MaxClients; ++i)
-		{
-			if (IsClientInGame(i))
-			{
-				//SDKHook(i, SDKHook_WeaponSwitchPost, HuntsmanSwitch);
-				SDKHook(i, SDKHook_OnTakeDamagePost, OnTakeDamagePost);
-			}
-		}
-		g_LateLoad = false;
-	}
-	CreateTimer(0.2, JumpTimer, _, TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
 }
 
 public OnMapEnd()
@@ -143,39 +116,42 @@ public OnMapEnd()
 	{
 		Steam_SetGameDescription("Team Fortress");
 	}
-	
-	// Kill the item replacement timers
-	for (new i = 1; i <= MaxClients; ++i)
-	{
-		if (g_ReplaceItems[i] != INVALID_HANDLE)
-		{
-			KillTimer(g_ReplaceItems[i]);
-			g_ReplaceItems[i] = INVALID_HANDLE;
-		}
-	}
 }
 
 public OnConfigsExecuted()
 {
 	g_Enabled = GetConVarBool(g_Cvar_Enabled);
 	
-	UpdateGameDescription();
+	if (g_Enabled)
+	{
+		if (g_LateLoad)
+		{
+			for (new i = 1; i <= MaxClients; ++i)
+			{
+				if (IsClientInGame(i))
+				{
+					SDKHook(i, SDKHook_OnTakeDamagePost, OnTakeDamagePost);
+				}
+			}
+			g_LateLoad = false;
+		}
+		
+		UpdateGameDescription();
+		CreateTimer(0.2, JumpTimer, _, TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
+	}
 }
 
 public OnClientPutInServer(client)
 {
-	//SDKHook(client, SDKHook_WeaponSwitchPost, HuntsmanSwitch);
-	SDKHook(client, SDKHook_OnTakeDamagePost, OnTakeDamagePost);
+	if (g_Enabled)
+	{
+		SDKHook(client, SDKHook_OnTakeDamagePost, OnTakeDamagePost);
+	}
 }
 
 public Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
 {
 	if (!g_Enabled)
-	{
-		return;
-	}
-	
-	if (!GetConVarBool(g_Cvar_SuperJump) || (g_Arena && StrEqual(name, "teamplay_round_start", false)))
 	{
 		return;
 	}
@@ -217,7 +193,7 @@ public Event_PlayerSpawn(Handle:event, const String:name[], bool:dontBroadcast)
 	
 	new client = GetClientOfUserId(GetEventInt(event, "userid"));
 	
-	if (client <= 0 || client > MaxClients || !IsClientInGame(client))
+	if (!IsPlayerAlive(client))
 	{
 		return;
 	}
@@ -241,24 +217,10 @@ public Event_Inventory(Handle:event, const String:name[], bool:dontBroadcast)
 	new userid = GetEventInt(event, "userid");
 	new client = GetClientOfUserId(userid);
 	
-	if (g_ReplaceItems[client] != INVALID_HANDLE)
+	if (TF2_GetPlayerClass(client) != TFClass_Sniper)
 	{
-		KillTimer(g_ReplaceItems[client]);
+		return;
 	}
-	
-	g_ReplaceItems[client] = CreateTimer(0.1, Timer_GiveItems, userid);
-	
-}
-
-public Action:Timer_GiveItems(Handle:timer, any:userid)
-{
-	new client = GetClientOfUserId(userid);
-	if (client == 0)
-	{
-		return Plugin_Continue;
-	}
-	
-	g_ReplaceItems[client] = INVALID_HANDLE;
 	
 	new secondary = GetPlayerWeaponSlot(client, TFWeaponSlot_Secondary);
 	if (secondary == -1)
@@ -291,11 +253,13 @@ public Action:Timer_GiveItems(Handle:timer, any:userid)
 		CloseHandle(item);
 		EquipPlayerWeapon(client, primary);
 		
-		//This is buggy, so we don't try it any more
-		//SetEntPropEnt(client, Prop_Data, "m_hActiveWeapon", primary);
+		//Ammo fix for Huntsman
+		new ammoOffset = GetEntProp(primary, Prop_Send, "m_iPrimaryAmmoType");
+		SetEntProp(client, Prop_Send, "m_iAmmo", 12, 4, ammoOffset);
+		
+		// Weapon is invisible if we do this
+		//SetEntPropEnt(client, Prop_Send, "m_hActiveWeapon", primary);
 	}
-
-	return Plugin_Continue;
 }
 
 public Action:TF2Items_OnGiveNamedItem(client, String:classname[], iItemDefinitionIndex, &Handle:hItem)
@@ -329,63 +293,15 @@ public OnEntityCreated(entity, const String:classname[])
 		return;
 	}
 	
-// Reload and ReloadPost aren't working on my test server for Huntsman
-/*
-	if (StrEqual(classname, BOW))
-	{
-		new bool:success = SDKHookEx(entity, SDKHook_ReloadPost, Bow_Ignite);
-	}
-*/
-
 	if (StrEqual(classname, ARROW))
 	{
-		// ...since lighting the bow doesn't work, lets just light the arrows
-		if (GetConVarBool(g_Cvar_FireArrows))
-		{
-			SDKHook(entity, SDKHook_SpawnPost, Arrow_Ignite);
-		}
+		
 		if (GetConVarBool(g_Cvar_Explode))
 		{
 			SDKHook(entity, SDKHook_StartTouchPost, Arrow_Explode);
 		}
 	}
 
-}
-
-public Bow_Ignite(weapon, bool:bSuccessful)
-{
-	PrintToChatAll("Attempting to ignite bow %d", weapon);
-
-	if (!bSuccessful)
-	{
-		return;
-	}
-	CreateTimer(1.0, Timer_BowIgnite, EntIndexToEntRef(weapon), TIMER_FLAG_NO_MAPCHANGE);
-	
-}
-
-public Action:Timer_BowIgnite(Handle:timer, any:weaponRef)
-{
-	new weapon = EntRefToEntIndex(weaponRef);
-	
-	if (weapon == INVALID_ENT_REFERENCE)
-	{
-		return Plugin_Continue;
-	}
-	Arrow_Ignite(weapon);
-	
-	return Plugin_Continue;
-}
-
-
-public Arrow_Ignite(entity)
-{
-	if (!g_Enabled)
-	{
-		return;
-	}
-	
-	SetEntProp(entity, Prop_Send, "m_bArrowAlight", 1);
 }
 
 public Arrow_Explode(entity, other)
@@ -441,7 +357,7 @@ public Action:Timer_DestroyExplosion(Handle:timer, any:explosionRef)
 
 public OnTakeDamagePost(victim, attacker, inflictor, Float:damage, damagetype)
 {
-	if (!GetConVarBool(g_Cvar_ExplodeFire) || victim <= 0 || victim > MaxClients || !IsValidEntity(inflictor))
+	if (!g_Enabled || !GetConVarBool(g_Cvar_ExplodeFire) || victim <= 0 || victim > MaxClients || !IsValidEntity(inflictor))
 	{
 		return;
 	}
@@ -458,24 +374,6 @@ public OnTakeDamagePost(victim, attacker, inflictor, Float:damage, damagetype)
 	}
 }
 
-
-public HuntsmanSwitch(client, weapon)
-{
-	if (!g_Enabled || !GetConVarBool(g_Cvar_FireArrows) || !IsValidEntity(weapon))
-	{
-		return;
-	}
-	
-	new String:classname[64];
-	
-	GetEntityClassname(weapon, classname, sizeof(classname));
-
-	if (StrEqual(classname, BOW))
-	{
-		SetEntProp(weapon, Prop_Send, "m_bArrowAlight", 1);
-	}
-}
-
 UpdateGameDescription()
 {
 	if (g_SteamTools && g_Enabled)
@@ -489,9 +387,29 @@ UpdateGameDescription()
 
 public Action:JumpTimer(Handle:hTimer)
 {
+	if (!g_Enabled)
+	{
+		return Plugin_Stop;
+	}
+	
 	for (new i = 1; i <= MaxClients; ++i)
 	{
-		if (!IsClientInGame(i))
+		if (!IsClientInGame(i) || !IsPlayerAlive(i))
+		{
+			continue;
+		}
+		
+		if (GetConVarBool(g_Cvar_FireArrows))
+		{
+			new primary = GetPlayerWeaponSlot(i, TFWeaponSlot_Primary);
+			new currentWeapon = GetEntPropEnt(i, Prop_Send, "m_hActiveWeapon");
+			if (primary == currentWeapon && GetEntProp(primary, Prop_Send, "m_bArrowAlight") == 0)
+			{
+				SetEntProp(primary, Prop_Send, "m_bArrowAlight", 1);
+			}
+		}
+		
+		if (!GetConVarBool(g_Cvar_SuperJump))
 		{
 			continue;
 		}
@@ -541,5 +459,7 @@ public Action:JumpTimer(Handle:hTimer)
 			}
 		}
 	}
+	
+	return Plugin_Continue;
 }
 

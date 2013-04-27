@@ -33,10 +33,12 @@ new String:g_Sounds_Jump[][] = { "vo/sniper_specialcompleted02.wav", "vo/sniper_
 new Handle:g_Cvar_Enabled = INVALID_HANDLE;
 new Handle:g_Cvar_Explode = INVALID_HANDLE;
 new Handle:g_Cvar_ExplodeFire = INVALID_HANDLE;
+new Handle:g_Cvar_ExplodeFireSelf = INVALID_HANDLE;
 new Handle:g_Cvar_ExplodeRadius = INVALID_HANDLE;
 new Handle:g_Cvar_ExplodeDamage = INVALID_HANDLE;
-new Handle:g_Cvar_ArrowCount = INVALID_HANDLE;
 new Handle:g_Cvar_FireArrows = INVALID_HANDLE;
+new Handle:g_Cvar_ArrowCount = INVALID_HANDLE;
+new Handle:g_Cvar_StartingHealth = INVALID_HANDLE;
 new Handle:g_Cvar_SuperJump = INVALID_HANDLE;
 
 new Handle:jumpHUD;
@@ -63,8 +65,10 @@ public OnPluginStart()
 	g_Cvar_ExplodeRadius = CreateConVar("huntsmanheaven_exploderadius", "200.0", "If arrows explode, the radius of explosion in hammer units.", FCVAR_PLUGIN);
 	g_Cvar_ExplodeDamage = CreateConVar("huntsmanheaven_explodedamage", "50.0", "If arrows explode, the damage the explosion does.", FCVAR_PLUGIN);
 	g_Cvar_ExplodeFire = CreateConVar("huntsmanheaven_explodefire", "1.0", "Should explosions catch players on fire?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
+	g_Cvar_ExplodeFireSelf = CreateConVar("huntsmanheaven_explodefire", "0.0", "Should explosions catch yourself on fire?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
 	g_Cvar_FireArrows = CreateConVar("huntsmanheaven_firearrows", "1.0", "Should all arrows catch on fire in Huntsman Heaven?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
 	g_Cvar_ArrowCount = CreateConVar("huntsmanheaven_arrowcount", "50.0", "Number of arrows to have in reserve to start?", FCVAR_PLUGIN, true, 0.0, true, 100.0);
+	g_Cvar_StartingHealth = CreateConVar("huntsmanheaven_health", "400.0", "Amount of Health for players to start with", FCVAR_PLUGIN, true, 125.0, true, 800.0);
 	g_Cvar_SuperJump = CreateConVar("huntsmanheaven_superjump", "1.0", "Should super jump be enabled in Huntsman Heaven?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
 
 	HookEvent("player_spawn", Event_PlayerSpawn);
@@ -205,8 +209,12 @@ public Event_PlayerSpawn(Handle:event, const String:name[], bool:dontBroadcast)
 	{
 		// Directions say param 3 is both ignored and to set it to false in a player spawn hook...
 		TF2_SetPlayerClass(client, TFClass_Sniper, false); 
+		
 		TF2_RespawnPlayer(client);
 	}
+
+	SetEntProp(client, Prop_Data, "m_iMaxHealth", GetConVarInt(g_Cvar_StartingHealth));
+	SetEntProp(client, Prop_Send, "m_iHealth", GetConVarInt(g_Cvar_StartingHealth));
 }
 
 public Event_Inventory(Handle:event, const String:name[], bool:dontBroadcast)
@@ -262,6 +270,7 @@ public Event_Inventory(Handle:event, const String:name[], bool:dontBroadcast)
 	//Set ammo count
 	new ammoOffset = GetEntProp(primary, Prop_Send, "m_iPrimaryAmmoType");
 	SetEntProp(client, Prop_Send, "m_iAmmo", GetConVarInt(g_Cvar_ArrowCount), 4, ammoOffset);
+	
 }
 
 public Action:TF2Items_OnGiveNamedItem(client, String:classname[], iItemDefinitionIndex, &Handle:hItem)
@@ -368,7 +377,7 @@ public OnTakeDamagePost(victim, attacker, inflictor, Float:damage, damagetype)
 	if (GetEntityClassname(inflictor, classname, sizeof(classname)) && StrEqual(classname, "env_explosion"))
 	{
 		new owner = GetEntPropEnt(inflictor, Prop_Data, "m_hOwnerEntity");
-		if (owner <= 0 || owner > MaxClients)
+		if (owner <= 0 || owner > MaxClients || (!GetConVarBool(g_Cvar_ExplodeFireSelf) && victim == owner) )
 		{
 			return;
 		}

@@ -4,6 +4,7 @@
 #include <tf2>
 #include <tf2_stocks>
 #include <tf2items>
+#include <tf2attributes>
 
 #undef REQUIRE_PLUGIN
 #include <steamtools>
@@ -16,7 +17,7 @@
 #define JUMPCHARGETIME 1
 #define JUMPCHARGE (25 * JUMPCHARGETIME)
 
-#define VERSION "1.1"
+#define VERSION "1.2"
 
 public Plugin:myinfo = 
 {
@@ -65,10 +66,10 @@ public OnPluginStart()
 	g_Cvar_ExplodeRadius = CreateConVar("huntsmanheaven_exploderadius", "200.0", "If arrows explode, the radius of explosion in hammer units.", FCVAR_PLUGIN);
 	g_Cvar_ExplodeDamage = CreateConVar("huntsmanheaven_explodedamage", "50.0", "If arrows explode, the damage the explosion does.", FCVAR_PLUGIN);
 	g_Cvar_ExplodeFire = CreateConVar("huntsmanheaven_explodefire", "1.0", "Should explosions catch players on fire?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
-	g_Cvar_ExplodeFireSelf = CreateConVar("huntsmanheaven_explodefire", "0.0", "Should explosions catch yourself on fire?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
+	g_Cvar_ExplodeFireSelf = CreateConVar("huntsmanheaven_explodefireself", "0.0", "Should explosions catch yourself on fire?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
 	g_Cvar_FireArrows = CreateConVar("huntsmanheaven_firearrows", "1.0", "Should all arrows catch on fire in Huntsman Heaven?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
-	g_Cvar_ArrowCount = CreateConVar("huntsmanheaven_arrowcount", "50.0", "Number of arrows to have in reserve to start?", FCVAR_PLUGIN, true, 0.0, true, 100.0);
-	g_Cvar_StartingHealth = CreateConVar("huntsmanheaven_health", "400.0", "Amount of Health for players to start with", FCVAR_PLUGIN, true, 125.0, true, 800.0);
+	g_Cvar_ArrowCount = CreateConVar("huntsmanheaven_arrowmultiplier", "4.0", "How many times the normal number of arrows should we have? Normal arrow count is 13", FCVAR_PLUGIN, true, 0.0, true, 8.0);
+	g_Cvar_StartingHealth = CreateConVar("huntsmanheaven_health", "400.0", "Amount of Health for players to start with", FCVAR_PLUGIN, true, 65.0, true, 800.0);
 	g_Cvar_SuperJump = CreateConVar("huntsmanheaven_superjump", "1.0", "Should super jump be enabled in Huntsman Heaven?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
 
 	HookEvent("player_spawn", Event_PlayerSpawn);
@@ -233,6 +234,7 @@ public Event_Inventory(Handle:event, const String:name[], bool:dontBroadcast)
 	}
 	
 	new secondary = GetPlayerWeaponSlot(client, TFWeaponSlot_Secondary);
+	
 	if (secondary == -1)
 	{
 		new Handle:item = TF2Items_CreateItem(OVERRIDE_ALL);
@@ -256,20 +258,30 @@ public Event_Inventory(Handle:event, const String:name[], bool:dontBroadcast)
 		TF2Items_SetItemIndex(item, 56);
 		TF2Items_SetLevel(item, 10);
 		TF2Items_SetQuality(item, 6);
-		TF2Items_SetNumAttributes(item, 2);
-		TF2Items_SetAttribute(item, 0, 37, 0.5);
-		TF2Items_SetAttribute(item, 1, 328, 1.0);
+		TF2Items_SetNumAttributes(item, 1);
+		//TF2Items_SetAttribute(item, 0, 37, 0.5);
+		TF2Items_SetAttribute(item, 0, 328, 1.0);
 		primary = TF2Items_GiveNamedItem(client, item);
 		CloseHandle(item);
 		EquipPlayerWeapon(client, primary);
-		
-		// Weapon is invisible if we do this
-		//SetEntPropEnt(client, Prop_Send, "m_hActiveWeapon", primary);
+	}
+	
+	TF2Attrib_SetByName(primary, "hidden primary max ammo bonus", GetConVarFloat(g_Cvar_ArrowCount) / 2.0);
+	
+	new healthDiff = (GetConVarInt(g_Cvar_StartingHealth) - 125);
+	
+	if (healthDiff > 0)
+	{
+		TF2Attrib_SetByName(client, "max health additive bonus", float(healthDiff));
+	}
+	else if (healthDiff < 0)
+	{
+		TF2Attrib_SetByName(client, "max health additive penalty", float(healthDiff));
 	}
 	
 	//Set ammo count
-	new ammoOffset = GetEntProp(primary, Prop_Send, "m_iPrimaryAmmoType");
-	SetEntProp(client, Prop_Send, "m_iAmmo", GetConVarInt(g_Cvar_ArrowCount), 4, ammoOffset);
+	//new ammoOffset = GetEntProp(primary, Prop_Send, "m_iPrimaryAmmoType");
+	//SetEntProp(client, Prop_Send, "m_iAmmo", GetConVarInt(g_Cvar_ArrowCount), 4, ammoOffset);
 	
 }
 

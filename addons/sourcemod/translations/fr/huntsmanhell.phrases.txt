@@ -6,6 +6,6 @@
 	}
 	"jump_status_2"
 	{
-		"fr"	"Le super saut sera de nouveau prêt dans"
+		"fr"	"Le super saut sera de nouveau prêt dans: {1}"
 	}
 }

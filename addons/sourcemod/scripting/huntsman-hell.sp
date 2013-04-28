@@ -17,13 +17,13 @@
 #define JUMPCHARGETIME 1
 #define JUMPCHARGE (25 * JUMPCHARGETIME)
 
-#define VERSION "1.2"
+#define VERSION "1.3"
 
 public Plugin:myinfo = 
 {
-	name = "[TF2] Huntsman Heaven",
+	name = "[TF2] Huntsman Hell",
 	author = "Powerlord",
-	description = "An adaptation of Huntsman Hell",
+	description = "All Snipers, all with Huntsman and Jarate, most likely firing arrows that explode and set you on fire.  What could go wrong?",
 	version = VERSION,
 	url = "<- URL ->"
 }
@@ -41,6 +41,8 @@ new Handle:g_Cvar_FireArrows = INVALID_HANDLE;
 new Handle:g_Cvar_ArrowCount = INVALID_HANDLE;
 new Handle:g_Cvar_StartingHealth = INVALID_HANDLE;
 new Handle:g_Cvar_SuperJump = INVALID_HANDLE;
+new Handle:g_Cvar_DoubleJump = INVALID_HANDLE;
+new Handle:g_Cvar_FallDamage = INVALID_HANDLE;
 
 new Handle:jumpHUD;
 
@@ -60,27 +62,28 @@ public APLRes:AskPluginLoad2(Handle:myself, bool:late, String:error[], err_max)
 
 public OnPluginStart()
 {
-	CreateConVar("huntsmanheaven_version", VERSION, "Huntsman Heaven Version", FCVAR_NOTIFY|FCVAR_PLUGIN|FCVAR_DONTRECORD);
-	g_Cvar_Enabled = CreateConVar("huntsmanheaven_enabled", "1.0", "Enable Huntsman Heaven?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
-	g_Cvar_Explode = CreateConVar("huntsmanheaven_explode", "1.0", "Should arrows explode when they hit something?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
-	g_Cvar_ExplodeRadius = CreateConVar("huntsmanheaven_exploderadius", "200.0", "If arrows explode, the radius of explosion in hammer units.", FCVAR_PLUGIN);
-	g_Cvar_ExplodeDamage = CreateConVar("huntsmanheaven_explodedamage", "50.0", "If arrows explode, the damage the explosion does.", FCVAR_PLUGIN);
-	g_Cvar_ExplodeFire = CreateConVar("huntsmanheaven_explodefire", "1.0", "Should explosions catch players on fire?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
-	g_Cvar_ExplodeFireSelf = CreateConVar("huntsmanheaven_explodefireself", "0.0", "Should explosions catch yourself on fire?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
-	g_Cvar_FireArrows = CreateConVar("huntsmanheaven_firearrows", "1.0", "Should all arrows catch on fire in Huntsman Heaven?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
-	g_Cvar_ArrowCount = CreateConVar("huntsmanheaven_arrowmultiplier", "4.0", "How many times the normal number of arrows should we have? Normal arrow count is 13", FCVAR_PLUGIN, true, 0.0, true, 8.0);
-	g_Cvar_StartingHealth = CreateConVar("huntsmanheaven_health", "400.0", "Amount of Health for players to start with", FCVAR_PLUGIN, true, 65.0, true, 800.0);
-	g_Cvar_SuperJump = CreateConVar("huntsmanheaven_superjump", "1.0", "Should super jump be enabled in Huntsman Heaven?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
+	CreateConVar("huntsmanheaven_version", VERSION, "Huntsman Hell Version", FCVAR_NOTIFY|FCVAR_PLUGIN|FCVAR_DONTRECORD);
+	g_Cvar_Enabled = CreateConVar("huntsmanhell_enabled", "1.0", "Enable Huntsman Hell?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
+	g_Cvar_Explode = CreateConVar("huntsmanhell_explode", "1.0", "Should arrows explode when they hit something?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
+	g_Cvar_ExplodeRadius = CreateConVar("huntsmanhell_exploderadius", "200.0", "If arrows explode, the radius of explosion in hammer units.", FCVAR_PLUGIN);
+	g_Cvar_ExplodeDamage = CreateConVar("huntsmanhell_explodedamage", "50.0", "If arrows explode, the damage the explosion does.", FCVAR_PLUGIN);
+	g_Cvar_ExplodeFire = CreateConVar("huntsmanhell_explodefire", "1.0", "Should explosions catch players on fire?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
+	g_Cvar_ExplodeFireSelf = CreateConVar("huntsmanhell_explodefireself", "0.0", "Should explosions catch yourself on fire?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
+	g_Cvar_FireArrows = CreateConVar("huntsmanhell_firearrows", "1.0", "Should all arrows catch on fire in Huntsman Hell?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
+	g_Cvar_ArrowCount = CreateConVar("huntsmanhell_arrowmultiplier", "4.0", "How many times the normal number of arrows should we have? Normal arrow count is 13", FCVAR_PLUGIN, true, 0.0, true, 8.0);
+	g_Cvar_StartingHealth = CreateConVar("huntsmanhell_health", "400.0", "Amount of Health for players to start with", FCVAR_PLUGIN, true, 65.0, true, 800.0);
+	g_Cvar_SuperJump = CreateConVar("huntsmanhell_superjump", "1.0", "Should super jump be enabled in Huntsman Hell?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
+	g_Cvar_DoubleJump = CreateConVar("huntsmanhell_doublejump", "1.0", "Should double jump be enabled in Huntsman Hell?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
+	g_Cvar_FallDamage = CreateConVar("huntsmanhell_falldamage", "0.0", "Should players take fall damage?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
 
 	HookEvent("player_spawn", Event_PlayerSpawn);
 	HookEvent("teamplay_round_start", Event_RoundStart);
-	//HookEvent("arena_round_start", Event_RoundStart);
 	HookEvent("post_inventory_application", Event_Inventory);
 	HookEvent("player_changeclass", Event_ChangeClass);
 	
 	jumpHUD = CreateHudSynchronizer();
-	LoadTranslations("huntsmanheaven.phrases");
-	AutoExecConfig(true, "huntsmanheaven");
+	LoadTranslations("huntsmanhell.phrases");
+	AutoExecConfig(true, "huntsmanhell");
 }
 
 public OnAllPluginsLoaded()
@@ -279,9 +282,15 @@ public Event_Inventory(Handle:event, const String:name[], bool:dontBroadcast)
 		TF2Attrib_SetByName(client, "max health additive penalty", float(healthDiff));
 	}
 	
-	//Set ammo count
-	//new ammoOffset = GetEntProp(primary, Prop_Send, "m_iPrimaryAmmoType");
-	//SetEntProp(client, Prop_Send, "m_iAmmo", GetConVarInt(g_Cvar_ArrowCount), 4, ammoOffset);
+	if (GetConVarBool(g_Cvar_DoubleJump))
+	{
+		TF2Attrib_SetByName(client, "air dash count", 1.0);
+	}
+	
+	if (!GetConVarBool(g_Cvar_FallDamage))
+	{
+		TF2Attrib_SetByName(client, "cancel falling damage", 1.0);
+	}
 	
 }
 
@@ -403,7 +412,7 @@ UpdateGameDescription()
 	{
 		new String:gamemode[32];
 		
-		Format(gamemode, sizeof(gamemode), "%s v.%s", "Huntsman Heaven", VERSION);
+		Format(gamemode, sizeof(gamemode), "%s v.%s", "Huntsman Hell", VERSION);
 		Steam_SetGameDescription(gamemode);
 	}
 }

@@ -284,7 +284,7 @@ public Event_Inventory(Handle:event, const String:name[], bool:dontBroadcast)
 	
 	if (GetConVarBool(g_Cvar_DoubleJump))
 	{
-		TF2Attrib_SetByName(client, "air dash count", 1.0);
+		TF2Attrib_SetByName(client, "increased jump height", 1.5);
 	}
 	
 	if (!GetConVarBool(g_Cvar_FallDamage))

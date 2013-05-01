@@ -6,7 +6,7 @@
 #include <tf2items>
 #include <tf2attributes>
 
-#undef REQUIRE_PLUGIN
+#undef REQUIRE_EXTENSIONS
 #include <steamtools>
 
 #pragma semicolon 1
@@ -17,7 +17,7 @@
 #define JUMPCHARGETIME 1
 #define JUMPCHARGE (25 * JUMPCHARGETIME)
 
-#define VERSION "1.3"
+#define VERSION "1.3.1"
 
 public Plugin:myinfo = 
 {
@@ -56,6 +56,7 @@ new bool:g_LateLoad = false;
 
 public APLRes:AskPluginLoad2(Handle:myself, bool:late, String:error[], err_max)
 {
+	MarkNativeAsOptional("Steam_SetGameDescription");
 	g_LateLoad = late;
 	return APLRes_Success;
 }

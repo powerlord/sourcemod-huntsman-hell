@@ -1,4 +1,6 @@
-sourcemod-huntsman-heaven
+sourcemod-huntsman-hell
 =========================
 
-Huntsman Heaven game mode.  Based on Huntsman Hell, but of course, they're already using that name...
+Huntsman Hell game mode.
+
+All Snipers, all with Huntsman and Jarate, firing arrows that explode and set you on fire.  What could go wrong?

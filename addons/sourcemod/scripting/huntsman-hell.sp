@@ -17,7 +17,7 @@
 #define JUMPCHARGETIME 1
 #define JUMPCHARGE (25 * JUMPCHARGETIME)
 
-#define VERSION "1.3.1"
+#define VERSION "1.4"
 
 public Plugin:myinfo = 
 {
@@ -80,7 +80,7 @@ public OnPluginStart()
 	HookEvent("player_spawn", Event_PlayerSpawn);
 	HookEvent("teamplay_round_start", Event_RoundStart);
 	HookEvent("post_inventory_application", Event_Inventory);
-	HookEvent("player_changeclass", Event_ChangeClass);
+	//HookEvent("player_changeclass", Event_ChangeClass);
 	
 	jumpHUD = CreateHudSynchronizer();
 	LoadTranslations("huntsmanhell.phrases");

@@ -13,11 +13,14 @@
 
 #define BOW "tf_weapon_compound_bow"
 #define ARROW "tf_projectile_arrow"
+#define KILL_FLAMETHROWER "flamethrower"
+#define KILL_FIREARROW "huntsman"
+#define KILL_EXPLOSION "env_explosion"
 
 #define JUMPCHARGETIME 1
 #define JUMPCHARGE (25 * JUMPCHARGETIME)
 
-#define VERSION "1.4"
+#define VERSION "1.4.1"
 
 public Plugin:myinfo = 
 {
@@ -63,7 +66,7 @@ public APLRes:AskPluginLoad2(Handle:myself, bool:late, String:error[], err_max)
 
 public OnPluginStart()
 {
-	CreateConVar("huntsmanheaven_version", VERSION, "Huntsman Hell Version", FCVAR_NOTIFY|FCVAR_PLUGIN|FCVAR_DONTRECORD);
+	CreateConVar("huntsmanhell_version", VERSION, "Huntsman Hell Version", FCVAR_NOTIFY|FCVAR_PLUGIN|FCVAR_DONTRECORD);
 	g_Cvar_Enabled = CreateConVar("huntsmanhell_enabled", "1.0", "Enable Huntsman Hell?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
 	g_Cvar_Explode = CreateConVar("huntsmanhell_explode", "1.0", "Should arrows explode when they hit something?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
 	g_Cvar_ExplodeRadius = CreateConVar("huntsmanhell_exploderadius", "200.0", "If arrows explode, the radius of explosion in hammer units.", FCVAR_PLUGIN, true, 1.0);
@@ -81,7 +84,8 @@ public OnPluginStart()
 	HookEvent("teamplay_round_start", Event_RoundStart);
 	HookEvent("post_inventory_application", Event_Inventory);
 	//HookEvent("player_changeclass", Event_ChangeClass);
-	
+	HookEvent("player_death", Event_Death, EventHookMode_Pre);
+
 	jumpHUD = CreateHudSynchronizer();
 	LoadTranslations("huntsmanhell.phrases");
 	AutoExecConfig(true, "huntsmanhell");
@@ -158,6 +162,36 @@ public OnClientPutInServer(client)
 	{
 		SDKHook(client, SDKHook_OnTakeDamagePost, OnTakeDamagePost);
 	}
+}
+
+public Action:Event_Death(Handle:event, const String:name[], bool:dontBroadcast)
+{
+	if (!g_Enabled)
+	{
+		return Plugin_Continue;
+	}
+	
+	new victim = GetEventInt(event, "victim_entindex");
+	new attacker = GetClientOfUserId(GetEventInt(event, "attacker"));
+	
+	decl String:weapon[64];
+	GetEventString(event, "weapon", weapon, sizeof(weapon));
+
+	if (StrEqual(weapon, KILL_FLAMETHROWER) && attacker != victim)
+	{
+		SetEventString(event, "weapon", "huntsman");
+		SetEventInt(event, "damagebits", (GetEventInt(event, "damagebits") & DMG_CRIT) | DMG_BURN | DMG_PREVENT_PHYSICS_FORCE);
+		SetEventInt(event, "customkill", TF_CUSTOM_BURNING_ARROW);
+	}
+
+	if (StrEqual(weapon, KILL_EXPLOSION))
+	{
+		SetEventString(event, "weapon", "tf_pumpkin_bomb");
+		SetEventInt(event, "damagebits", (GetEventInt(event, "damagebits") & DMG_CRIT) | DMG_BLAST | DMG_RADIATION | DMG_POISON);
+		SetEventInt(event, "customkill", TF_CUSTOM_PUMPKIN_BOMB);
+	}
+	
+	return Plugin_Continue;
 }
 
 public Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)

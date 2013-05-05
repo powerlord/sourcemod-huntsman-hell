@@ -20,7 +20,7 @@
 #define JUMPCHARGETIME 1
 #define JUMPCHARGE (25 * JUMPCHARGETIME)
 
-#define VERSION "1.4.1"
+#define VERSION "1.5"
 
 public Plugin:myinfo = 
 {
@@ -50,8 +50,6 @@ new Handle:g_Cvar_FallDamage = INVALID_HANDLE;
 new Handle:jumpHUD;
 
 new g_JumpCharge[MAXPLAYERS] = { 0, ... };
-
-new bool:g_Enabled = false;
 
 new bool:g_SteamTools = false;
 
@@ -85,6 +83,8 @@ public OnPluginStart()
 	HookEvent("post_inventory_application", Event_Inventory);
 	//HookEvent("player_changeclass", Event_ChangeClass);
 	HookEvent("player_death", Event_Death, EventHookMode_Pre);
+	
+	HookConVarChange(g_Cvar_Enabled, Cvar_Enabled);
 
 	jumpHUD = CreateHudSynchronizer();
 	LoadTranslations("huntsmanhell.phrases");
@@ -127,17 +127,35 @@ public OnMapStart()
 
 public OnMapEnd()
 {
-	if (g_Enabled && g_SteamTools)
+	if (GetConVarBool(g_Cvar_Enabled) && g_SteamTools)
 	{
 		Steam_SetGameDescription("Team Fortress");
 	}
 }
 
+public Cvar_Enabled(Handle:convar, const String:oldValue[], const String:newValue[])
+{
+	for (new i = 1; i <= MaxClients; ++i)
+	{
+		if (IsClientInGame(i) && IsPlayerAlive(i))
+		{
+			TF2_RemoveAllWeapons(i);
+			if (GetConVarBool(g_Cvar_Enabled))
+			{
+				TF2_SetPlayerClass(i, TFClass_Sniper); // Might as well only respawn them once
+			}
+			else
+			{
+				TF2Attrib_RemoveAll(i);
+			}
+			TF2_RespawnPlayer(i);
+		}
+	}
+}
+
 public OnConfigsExecuted()
 {
-	g_Enabled = GetConVarBool(g_Cvar_Enabled);
-	
-	if (g_Enabled)
+	if (GetConVarBool(g_Cvar_Enabled))
 	{
 		if (g_LateLoad)
 		{
@@ -158,15 +176,12 @@ public OnConfigsExecuted()
 
 public OnClientPutInServer(client)
 {
-	if (g_Enabled)
-	{
-		SDKHook(client, SDKHook_OnTakeDamagePost, OnTakeDamagePost);
-	}
+	SDKHook(client, SDKHook_OnTakeDamagePost, OnTakeDamagePost);
 }
 
 public Action:Event_Death(Handle:event, const String:name[], bool:dontBroadcast)
 {
-	if (!g_Enabled)
+	if (!GetConVarBool(g_Cvar_Enabled))
 	{
 		return Plugin_Continue;
 	}
@@ -196,7 +211,7 @@ public Action:Event_Death(Handle:event, const String:name[], bool:dontBroadcast)
 
 public Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
 {
-	if (!g_Enabled)
+	if (!GetConVarBool(g_Cvar_Enabled))
 	{
 		return;
 	}
@@ -207,31 +222,9 @@ public Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
 	}
 }
 
-public Event_ChangeClass(Handle:event, const String:name[], bool:dontBroadcast)
-{
-	if (!g_Enabled)
-	{
-		return;
-	}
-	
-	new client = GetClientOfUserId(GetEventInt(event, "userid"));
-	
-	if (client <= 0 || client > MaxClients || !IsClientInGame(client))
-	{
-		return;
-	}
-	
-	new TFClassType:class = TFClassType:GetEventInt(event, "class");
-	if (class != TFClass_Sniper)
-	{
-		TF2_SetPlayerClass(client, TFClass_Sniper);
-		TF2_RespawnPlayer(client);
-	}
-}
-
 public Event_PlayerSpawn(Handle:event, const String:name[], bool:dontBroadcast)
 {
-	if (!g_Enabled)
+	if (!GetConVarBool(g_Cvar_Enabled))
 	{
 		return;
 	}
@@ -258,7 +251,7 @@ public Event_PlayerSpawn(Handle:event, const String:name[], bool:dontBroadcast)
 
 public Event_Inventory(Handle:event, const String:name[], bool:dontBroadcast)
 {
-	if (!g_Enabled)
+	if (!GetConVarBool(g_Cvar_Enabled))
 	{
 		return;
 	}
@@ -266,6 +259,7 @@ public Event_Inventory(Handle:event, const String:name[], bool:dontBroadcast)
 	new userid = GetEventInt(event, "userid");
 	new client = GetClientOfUserId(userid);
 	
+	// This is to prevent replacing their inventory if they just spawned as a different class and we haven't changed them yet
 	if (TF2_GetPlayerClass(client) != TFClass_Sniper)
 	{
 		return;
@@ -333,7 +327,7 @@ public Action:TF2Items_OnGiveNamedItem(client, String:classname[], iItemDefiniti
 {
 	static Handle:item = INVALID_HANDLE;
 	
-	if (!g_Enabled)
+	if (!GetConVarBool(g_Cvar_Enabled))
 	{
 		return Plugin_Continue;
 	}
@@ -355,7 +349,7 @@ public Action:TF2Items_OnGiveNamedItem(client, String:classname[], iItemDefiniti
 
 public OnEntityCreated(entity, const String:classname[])
 {
-	if (!g_Enabled)
+	if (!GetConVarBool(g_Cvar_Enabled))
 	{
 		return;
 	}
@@ -424,7 +418,7 @@ public Action:Timer_DestroyExplosion(Handle:timer, any:explosionRef)
 
 public OnTakeDamagePost(victim, attacker, inflictor, Float:damage, damagetype)
 {
-	if (!g_Enabled || !GetConVarBool(g_Cvar_ExplodeFire) || victim <= 0 || victim > MaxClients || !IsValidEntity(inflictor))
+	if (!GetConVarBool(g_Cvar_Enabled) || !GetConVarBool(g_Cvar_ExplodeFire) || victim <= 0 || victim > MaxClients || !IsValidEntity(inflictor))
 	{
 		return;
 	}
@@ -443,7 +437,7 @@ public OnTakeDamagePost(victim, attacker, inflictor, Float:damage, damagetype)
 
 UpdateGameDescription()
 {
-	if (g_SteamTools && g_Enabled)
+	if (g_SteamTools && GetConVarBool(g_Cvar_Enabled))
 	{
 		new String:gamemode[32];
 		
@@ -454,7 +448,7 @@ UpdateGameDescription()
 
 public Action:JumpTimer(Handle:hTimer)
 {
-	if (!g_Enabled)
+	if (!GetConVarBool(g_Cvar_Enabled))
 	{
 		return Plugin_Stop;
 	}

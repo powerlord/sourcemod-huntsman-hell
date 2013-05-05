@@ -20,7 +20,7 @@
 #define JUMPCHARGETIME 1
 #define JUMPCHARGE (25 * JUMPCHARGETIME)
 
-#define VERSION "1.5"
+#define VERSION "1.5.1"
 
 public Plugin:myinfo = 
 {
@@ -46,6 +46,7 @@ new Handle:g_Cvar_StartingHealth = INVALID_HANDLE;
 new Handle:g_Cvar_SuperJump = INVALID_HANDLE;
 //new Handle:g_Cvar_DoubleJump = INVALID_HANDLE;
 new Handle:g_Cvar_FallDamage = INVALID_HANDLE;
+new Handle:g_Cvar_GameDescription = INVALID_HANDLE;
 
 new Handle:jumpHUD;
 
@@ -77,6 +78,7 @@ public OnPluginStart()
 	g_Cvar_SuperJump = CreateConVar("huntsmanhell_superjump", "1.0", "Should super jump be enabled in Huntsman Hell?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
 	//g_Cvar_DoubleJump = CreateConVar("huntsmanhell_doublejump", "1.0", "Should double jump be enabled in Huntsman Hell?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
 	g_Cvar_FallDamage = CreateConVar("huntsmanhell_falldamage", "0.0", "Should players take fall damage?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
+	g_Cvar_GameDescription = CreateConVar("huntsmanhell_gamedescription", "1.0", "If SteamTools is loaded, set the Game Description to Huntsman Hell?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
 
 	HookEvent("player_spawn", Event_PlayerSpawn);
 	HookEvent("teamplay_round_start", Event_RoundStart);
@@ -85,6 +87,7 @@ public OnPluginStart()
 	HookEvent("player_death", Event_Death, EventHookMode_Pre);
 	
 	HookConVarChange(g_Cvar_Enabled, Cvar_Enabled);
+	HookConVarChange(g_Cvar_GameDescription, Cvar_GameDescription);
 
 	jumpHUD = CreateHudSynchronizer();
 	LoadTranslations("huntsmanhell.phrases");
@@ -125,14 +128,6 @@ public OnMapStart()
 	}
 }
 
-public OnMapEnd()
-{
-	if (GetConVarBool(g_Cvar_Enabled) && g_SteamTools)
-	{
-		Steam_SetGameDescription("Team Fortress");
-	}
-}
-
 public Cvar_Enabled(Handle:convar, const String:oldValue[], const String:newValue[])
 {
 	for (new i = 1; i <= MaxClients; ++i)
@@ -151,6 +146,13 @@ public Cvar_Enabled(Handle:convar, const String:oldValue[], const String:newValu
 			TF2_RespawnPlayer(i);
 		}
 	}
+	
+	UpdateGameDescription();
+}	
+
+public Cvar_GameDescription(Handle:convar, const String:oldValue[], const String:newValue[])
+{
+	UpdateGameDescription();
 }
 
 public OnConfigsExecuted()
@@ -169,8 +171,31 @@ public OnConfigsExecuted()
 			g_LateLoad = false;
 		}
 		
-		UpdateGameDescription();
 		CreateTimer(0.2, JumpTimer, _, TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
+		
+		UpdateGameDescription(true);
+	}
+}
+
+UpdateGameDescription(bool:bAddOnly=false)
+{
+	if (g_SteamTools)
+	{
+		new String:gamemode[64];
+		if (GetConVarBool(g_Cvar_Enabled) && GetConVarBool(g_Cvar_GameDescription))
+		{
+			Format(gamemode, sizeof(gamemode), "Huntsman Hell v.%s", VERSION);
+		}
+		else if (bAddOnly)
+		{
+			// Leave it alone if we're not running, should only be used when configs are executed
+			return;
+		}
+		else
+		{
+			strcopy(gamemode, sizeof(gamemode), "Team Fortress");
+		}
+		Steam_SetGameDescription(gamemode);
 	}
 }
 
@@ -432,17 +457,6 @@ public OnTakeDamagePost(victim, attacker, inflictor, Float:damage, damagetype)
 			return;
 		}
 		TF2_IgnitePlayer(victim, owner);
-	}
-}
-
-UpdateGameDescription()
-{
-	if (g_SteamTools && GetConVarBool(g_Cvar_Enabled))
-	{
-		new String:gamemode[32];
-		
-		Format(gamemode, sizeof(gamemode), "%s v.%s", "Huntsman Hell", VERSION);
-		Steam_SetGameDescription(gamemode);
 	}
 }
 

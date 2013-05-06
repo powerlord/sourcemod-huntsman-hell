@@ -92,8 +92,11 @@ public OnPluginStart()
 	
 	HookConVarChange(g_Cvar_Enabled, Cvar_Enabled);
 	HookConVarChange(g_Cvar_GameDescription, Cvar_GameDescription);
+	
+	RegConsoleCmd("hh_help", Cmd_Help, "Huntsman Hell help");
 
 	jumpHUD = CreateHudSynchronizer();
+	LoadTranslations("common.phrases");
 	LoadTranslations("huntsmanhell.phrases");
 	AutoExecConfig(true, "huntsmanhell");
 }
@@ -139,10 +142,144 @@ public OnClientDisconnect_Post(client)
 	g_JumpCharge[client] = 0;
 }
 
+public Action:Cmd_Help(client, args)
+{
+	if (!GetConVarBool(g_Cvar_Enabled))
+	{
+		return Plugin_Continue;
+	}
+	
+	if (client == 0)
+	{
+		ReplyToCommand(client, "%t", "Command is in-game only");
+		return Plugin_Handled;
+	}
+	
+	new Handle:menu = CreateMenu(HelpHandler, MenuAction_Display | MenuAction_End | MenuAction_DisplayItem);
+	
+	SetMenuTitle(menu, "%T", "help_title", LANG_SERVER);
+
+	AddMenuItem(menu, "help_basic", "help_basic", ITEMDRAW_DISABLED);
+	
+	new arrows = RoundToFloor(25.0 * (GetConVarFloat(g_Cvar_ArrowCount) / 2.0)) + 1;
+
+	new String:numbers[5];
+	IntToString(arrows, numbers, sizeof(numbers));
+	AddMenuItem(menu, "help_arrows", numbers, ITEMDRAW_DISABLED);
+
+	IntToString(GetConVarInt(g_Cvar_StartingHealth), numbers, sizeof(numbers));
+	AddMenuItem(menu, "help_health", numbers, ITEMDRAW_DISABLED);
+	
+	AddMenuItem(menu, "help_explosions", "help_explosions", ITEMDRAW_DISABLED);
+	
+	AddMenuItem(menu, "help_doublejump", "help_doublejump", ITEMDRAW_DISABLED);
+	
+	AddMenuItem(menu, "help_superjump", "help_superjump", ITEMDRAW_DISABLED);
+	
+	AddMenuItem(menu, "help_falldamage", "help_falldamage", ITEMDRAW_DISABLED);
+	
+	DisplayMenu(menu, client, MENU_TIME_FOREVER);
+	
+	return Plugin_Handled;
+}
+
+public HelpHandler(Handle:menu, MenuAction:action, param1, param2)
+{
+	switch (action)
+	{
+		case MenuAction_Display:
+		{
+			new String:buffer[128];
+			Format(buffer, sizeof(buffer), "%T", "help_title", param1);
+			SetPanelTitle(Handle:param2, buffer);
+		}
+		
+		case MenuAction_End:
+		{
+			CloseHandle(menu);
+		}
+		
+		case MenuAction_DisplayItem:
+		{
+			new String:item[20];
+			new String:display[20];
+			GetMenuItem(menu, param2, item, sizeof(item), _, display, sizeof(display));
+			
+			new String:buffer[128];
+			
+			if (StrEqual(item, "help_basic"))
+			{
+				Format(buffer, sizeof(buffer), "%T", "help_basic", param1);
+				return RedrawMenuItem(buffer);
+			}
+			else if (StrEqual(item, "help_arrows"))
+			{
+				new String:arrowType[30];
+				if (GetConVarBool(g_Cvar_Explode) && GetConVarBool(g_Cvar_FireArrows))
+				{
+					strcopy(arrowType, sizeof(arrowType), "help_arrows_explodingfire");
+				}
+				else if (GetConVarBool(g_Cvar_Explode))
+				{
+					strcopy(arrowType, sizeof(arrowType), "help_arrows_exploding");
+				}
+				else if (GetConVarBool(g_Cvar_FireArrows))
+				{
+					strcopy(arrowType, sizeof(arrowType), "help_arrows_fire");
+				}
+				else
+				{
+					strcopy(arrowType, sizeof(arrowType), "help_arrows_normal");
+				}
+				
+				Format(buffer, sizeof(buffer), "%T", "help_arrows", param1, StringToInt(display), arrowType);
+				return RedrawMenuItem(buffer);
+			}
+			else if (StrEqual(item, "help_explosions"))
+			{
+				new String:explodeType[30];
+				if (GetConVarBool(g_Cvar_ExplodeFireSelf))
+				{
+					strcopy(explodeType, sizeof(explodeType), "help_explosionsfireself");
+				}
+				else if (GetConVarBool(g_Cvar_ExplodeFire))
+				{
+					strcopy(explodeType, sizeof(explodeType), "help_explosionsfire");
+				}
+				Format(buffer, sizeof(buffer), "%T", explodeType, param1);
+				return RedrawMenuItem(buffer);
+			}
+			else if (StrEqual(item, "help_health"))
+			{
+				Format(buffer, sizeof(buffer), "%T", "help_health", param1, StringToInt(display));
+				return RedrawMenuItem(buffer);
+			}
+			else if (StrEqual(item, "help_doublejump"))
+			{
+				Format(buffer, sizeof(buffer), "%T", "help_doublejump", param1);
+				return RedrawMenuItem(buffer);
+			}
+			else if (StrEqual(item, "help_superjump"))
+			{
+				Format(buffer, sizeof(buffer), "%T", "help_superjump", param1);
+				return RedrawMenuItem(buffer);
+			}
+			else if (StrEqual(item, "help_falldamage"))
+			{
+				Format(buffer, sizeof(buffer), "%T", "help_falldamage", param1);
+				return RedrawMenuItem(buffer);
+			}
+		}
+	}
+	
+	return 0;
+}
+
 public Cvar_Enabled(Handle:convar, const String:oldValue[], const String:newValue[])
 {
 	if (GetConVarBool(g_Cvar_Enabled))
 	{
+		PrintToChatAll("%t", "login_help");
 		CreateTimer(0.2, JumpTimer, _, TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
 	}
 	
@@ -221,6 +358,11 @@ UpdateGameDescription(bool:bAddOnly=false)
 public OnClientPutInServer(client)
 {
 	SDKHook(client, SDKHook_OnTakeDamagePost, OnTakeDamagePost);
+	
+	if (GetConVarBool(g_Cvar_Enabled))
+	{
+		PrintToChat(client, "%t", "login_help");
+	}
 }
 
 public Action:Event_Death(Handle:event, const String:name[], bool:dontBroadcast)

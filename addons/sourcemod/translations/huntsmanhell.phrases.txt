@@ -10,4 +10,77 @@
 		"#format" "{1:i}"
 		"en"	"Super Jump will be ready again in: {1}"
 	}
+
+	"help_title"
+	{
+		"en"	"Huntsman Hell Help"
+	}
+
+	"login_help"
+	{
+		"en"	"Welcome to Huntsman Hell. For Huntsman Hell help, type /hh_help"
+	}
+
+	"help_basic"
+	{
+		"en"	"Huntsman Hell is a game mode where all players play as Huntsman Snipers with Jarate"
+	}
+
+	"help_arrows"
+	{
+		"#format" "{1:i},{2:t}"
+		"en"	"All players start with {1} {2} arrows"
+	}
+
+	"help_arrows_normal"
+	{
+		"en"	"normal"
+	}
+
+	"help_arrows_exploding"
+	{
+		"en"	"exploding"
+	}
+
+	"help_arrows_fire"
+	{
+		"en"	"fire"
+	}
+
+	"help_arrows_explodingfire"
+	{
+		"en"	"exploding fire"
+	}
+
+	"help_explosionsfire"
+	{
+		"en"	"Explosions will cause enemy players to catch fire"
+	}
+
+	"help_explosionsfireself"
+	{
+		"en"	"Explosions will cause enemy players and the player who fired them to catch fire"
+	}
+
+	"help_health"
+	{
+		"#format"	"{1:i}"
+		"en"	"All players start with {1} health"
+	}
+
+	"help_superjump"
+	{
+		"en"	"To superjump, hold down attack2 or duck, then look up and let go"
+	}
+
+	"help_doublejump"
+	{
+		"en"	"All players can double jump"
+	}
+
+	"help_falldamage"
+	{
+		"en"	"Players do not take fall damage"
+	}
+
 }

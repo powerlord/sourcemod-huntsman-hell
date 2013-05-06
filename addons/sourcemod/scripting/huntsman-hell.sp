@@ -70,18 +70,18 @@ public APLRes:AskPluginLoad2(Handle:myself, bool:late, String:error[], err_max)
 public OnPluginStart()
 {
 	CreateConVar("huntsmanhell_version", VERSION, "Huntsman Hell Version", FCVAR_NOTIFY|FCVAR_PLUGIN|FCVAR_DONTRECORD);
-	g_Cvar_Enabled = CreateConVar("huntsmanhell_enabled", "1.0", "Enable Huntsman Hell?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
-	g_Cvar_Explode = CreateConVar("huntsmanhell_explode", "1.0", "Should arrows explode when they hit something?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
-	g_Cvar_ExplodeRadius = CreateConVar("huntsmanhell_exploderadius", "200.0", "If arrows explode, the radius of explosion in hammer units.", FCVAR_PLUGIN, true, 1.0);
-	g_Cvar_ExplodeDamage = CreateConVar("huntsmanhell_explodedamage", "50.0", "If arrows explode, the damage the explosion does.", FCVAR_PLUGIN, true, 1.0);
-	g_Cvar_ExplodeFire = CreateConVar("huntsmanhell_explodefire", "1.0", "Should explosions catch players on fire?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
-	g_Cvar_ExplodeFireSelf = CreateConVar("huntsmanhell_explodefireself", "0.0", "Should explosions catch yourself on fire?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
-	g_Cvar_FireArrows = CreateConVar("huntsmanhell_firearrows", "1.0", "Should all arrows catch on fire in Huntsman Hell?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
-	g_Cvar_ArrowCount = CreateConVar("huntsmanhell_arrowmultiplier", "4.0", "How many times the normal number of arrows should we have? Normal arrow count is 13", FCVAR_PLUGIN, true, 0.0, true, 8.0);
-	g_Cvar_StartingHealth = CreateConVar("huntsmanhell_health", "400.0", "Amount of Health players to start with", FCVAR_PLUGIN, true, 65.0, true, 800.0);
-	g_Cvar_SuperJump = CreateConVar("huntsmanhell_superjump", "1.0", "Should super jump be enabled in Huntsman Hell?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
-	g_Cvar_DoubleJump = CreateConVar("huntsmanhell_doublejump", "1.0", "Should double jump be enabled in Huntsman Hell?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
-	g_Cvar_FallDamage = CreateConVar("huntsmanhell_falldamage", "0.0", "Should players take fall damage?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
+	g_Cvar_Enabled = CreateConVar("huntsmanhell_enabled", "1.0", "Enable Huntsman Hell?", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 1.0);
+	g_Cvar_Explode = CreateConVar("huntsmanhell_explode", "1.0", "Should arrows explode when they hit something?", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 1.0);
+	g_Cvar_ExplodeRadius = CreateConVar("huntsmanhell_exploderadius", "200.0", "If arrows explode, the radius of explosion in hammer units.", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 1.0);
+	g_Cvar_ExplodeDamage = CreateConVar("huntsmanhell_explodedamage", "50.0", "If arrows explode, the damage the explosion does.", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 1.0);
+	g_Cvar_ExplodeFire = CreateConVar("huntsmanhell_explodefire", "1.0", "Should explosions catch players on fire?", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 1.0);
+	g_Cvar_ExplodeFireSelf = CreateConVar("huntsmanhell_explodefireself", "0.0", "Should explosions catch yourself on fire?", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 1.0);
+	g_Cvar_FireArrows = CreateConVar("huntsmanhell_firearrows", "1.0", "Should all arrows catch on fire in Huntsman Hell?", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 1.0);
+	g_Cvar_ArrowCount = CreateConVar("huntsmanhell_arrowmultiplier", "4.0", "How many times the normal number of arrows should we have? Normal arrow count is 13", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 8.0);
+	g_Cvar_StartingHealth = CreateConVar("huntsmanhell_health", "400.0", "Amount of Health players to start with", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 65.0, true, 800.0);
+	g_Cvar_SuperJump = CreateConVar("huntsmanhell_superjump", "1.0", "Should super jump be enabled in Huntsman Hell?", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 1.0);
+	g_Cvar_DoubleJump = CreateConVar("huntsmanhell_doublejump", "1.0", "Should double jump be enabled in Huntsman Hell?", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 1.0);
+	g_Cvar_FallDamage = CreateConVar("huntsmanhell_falldamage", "0.0", "Should players take fall damage?", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 1.0);
 	g_Cvar_GameDescription = CreateConVar("huntsmanhell_gamedescription", "1.0", "If SteamTools is loaded, set the Game Description to Huntsman Hell?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
 
 	HookEvent("player_spawn", Event_PlayerSpawn);

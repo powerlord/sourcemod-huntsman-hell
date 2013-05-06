@@ -1,4 +1,5 @@
 #include <sourcemod>
+#include <entity_prop_stocks>
 #include <sdktools>
 #include <sdkhooks>
 #include <tf2>
@@ -20,7 +21,7 @@
 #define JUMPCHARGETIME 1
 #define JUMPCHARGE (25 * JUMPCHARGETIME)
 
-#define VERSION "1.5.1"
+#define VERSION "1.6.0"
 
 public Plugin:myinfo = 
 {
@@ -44,7 +45,7 @@ new Handle:g_Cvar_FireArrows = INVALID_HANDLE;
 new Handle:g_Cvar_ArrowCount = INVALID_HANDLE;
 new Handle:g_Cvar_StartingHealth = INVALID_HANDLE;
 new Handle:g_Cvar_SuperJump = INVALID_HANDLE;
-//new Handle:g_Cvar_DoubleJump = INVALID_HANDLE;
+new Handle:g_Cvar_DoubleJump = INVALID_HANDLE;
 new Handle:g_Cvar_FallDamage = INVALID_HANDLE;
 new Handle:g_Cvar_GameDescription = INVALID_HANDLE;
 
@@ -52,14 +53,17 @@ new Handle:jumpHUD;
 
 new g_JumpCharge[MAXPLAYERS+1] = { 0, ... };
 
-new bool:g_SteamTools = false;
+new bool:g_bDoubleJumped[MAXPLAYERS+1];
+new g_LastButtons[MAXPLAYERS+1];
 
-new bool:g_LateLoad = false;
+new bool:g_bSteamTools = false;
+
+new bool:g_bLateLoad = false;
 
 public APLRes:AskPluginLoad2(Handle:myself, bool:late, String:error[], err_max)
 {
 	MarkNativeAsOptional("Steam_SetGameDescription");
-	g_LateLoad = late;
+	g_bLateLoad = late;
 	return APLRes_Success;
 }
 
@@ -76,7 +80,7 @@ public OnPluginStart()
 	g_Cvar_ArrowCount = CreateConVar("huntsmanhell_arrowmultiplier", "4.0", "How many times the normal number of arrows should we have? Normal arrow count is 13", FCVAR_PLUGIN, true, 0.0, true, 8.0);
 	g_Cvar_StartingHealth = CreateConVar("huntsmanhell_health", "400.0", "Amount of Health players to start with", FCVAR_PLUGIN, true, 65.0, true, 800.0);
 	g_Cvar_SuperJump = CreateConVar("huntsmanhell_superjump", "1.0", "Should super jump be enabled in Huntsman Hell?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
-	//g_Cvar_DoubleJump = CreateConVar("huntsmanhell_doublejump", "1.0", "Should double jump be enabled in Huntsman Hell?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
+	g_Cvar_DoubleJump = CreateConVar("huntsmanhell_doublejump", "1.0", "Should double jump be enabled in Huntsman Hell?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
 	g_Cvar_FallDamage = CreateConVar("huntsmanhell_falldamage", "0.0", "Should players take fall damage?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
 	g_Cvar_GameDescription = CreateConVar("huntsmanhell_gamedescription", "1.0", "If SteamTools is loaded, set the Game Description to Huntsman Hell?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
 
@@ -96,14 +100,14 @@ public OnPluginStart()
 
 public OnAllPluginsLoaded()
 {
-	g_SteamTools = LibraryExists("SteamTools");
+	g_bSteamTools = LibraryExists("SteamTools");
 }
 
 public OnLibraryAdded(const String:name[])
 {
 	if (StrEqual(name, "SteamTools", false))
 	{
-		g_SteamTools = true;
+		g_bSteamTools = true;
 	}
 }
 
@@ -111,7 +115,7 @@ public OnLibraryRemoved(const String:name[])
 {
 	if (StrEqual(name, "SteamTools", false))
 	{
-		g_SteamTools = false;
+		g_bSteamTools = false;
 	}
 }
 
@@ -128,8 +132,20 @@ public OnMapStart()
 	}
 }
 
+public OnClientDisconnect_Post(client)
+{
+	g_bDoubleJumped[client] = false;
+	g_LastButtons[client] = 0;
+	g_JumpCharge[client] = 0;
+}
+
 public Cvar_Enabled(Handle:convar, const String:oldValue[], const String:newValue[])
 {
+	if (GetConVarBool(g_Cvar_Enabled))
+	{
+		CreateTimer(0.2, JumpTimer, _, TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
+	}
+	
 	for (new i = 1; i <= MaxClients; ++i)
 	{
 		if (IsClientInGame(i) && IsPlayerAlive(i))
@@ -138,6 +154,9 @@ public Cvar_Enabled(Handle:convar, const String:oldValue[], const String:newValu
 			if (GetConVarBool(g_Cvar_Enabled))
 			{
 				TF2_SetPlayerClass(i, TFClass_Sniper); // Might as well only respawn them once
+				g_bDoubleJumped[i] = false;
+				g_LastButtons[i] = 0;
+				g_JumpCharge[i] = 0;
 			}
 			else
 			{
@@ -159,7 +178,7 @@ public OnConfigsExecuted()
 {
 	if (GetConVarBool(g_Cvar_Enabled))
 	{
-		if (g_LateLoad)
+		if (g_bLateLoad)
 		{
 			for (new i = 1; i <= MaxClients; ++i)
 			{
@@ -168,7 +187,7 @@ public OnConfigsExecuted()
 					SDKHook(i, SDKHook_OnTakeDamagePost, OnTakeDamagePost);
 				}
 			}
-			g_LateLoad = false;
+			g_bLateLoad = false;
 		}
 		
 		CreateTimer(0.2, JumpTimer, _, TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
@@ -179,7 +198,7 @@ public OnConfigsExecuted()
 
 UpdateGameDescription(bool:bAddOnly=false)
 {
-	if (g_SteamTools)
+	if (g_bSteamTools)
 	{
 		new String:gamemode[64];
 		if (GetConVarBool(g_Cvar_Enabled) && GetConVarBool(g_Cvar_GameDescription))
@@ -260,6 +279,10 @@ public Event_PlayerSpawn(Handle:event, const String:name[], bool:dontBroadcast)
 	{
 		return;
 	}
+	
+	g_bDoubleJumped[client] = false;
+	g_LastButtons[client] = 0;
+	g_JumpCharge[client] = 0;
 	
 	new TFClassType:class = TFClassType:GetEventInt(event, "class");
 	if (class != TFClass_Sniper)
@@ -474,6 +497,11 @@ public Action:JumpTimer(Handle:hTimer)
 			continue;
 		}
 		
+		if (g_bDoubleJumped[i] && (GetEntityFlags(i) & FL_ONGROUND))
+		{
+			g_bDoubleJumped[i] = false;
+		}
+		
 		if (GetConVarBool(g_Cvar_FireArrows))
 		{
 			new primary = GetPlayerWeaponSlot(i, TFWeaponSlot_Primary);
@@ -538,3 +566,94 @@ public Action:JumpTimer(Handle:hTimer)
 	return Plugin_Continue;
 }
 
+// Use the 1.4 compat version
+public Action:OnPlayerRunCmd(client, &buttons, &impulse, Float:vel[3], Float:angles[3], &weapon)
+{
+	if (!GetConVarBool(g_Cvar_Enabled) || !GetConVarBool(g_Cvar_DoubleJump))
+	{
+		return Plugin_Continue;
+	}
+	
+	if ((buttons & IN_JUMP) && !(g_LastButtons[client] & IN_JUMP) && !(GetEntityFlags(client) & FL_ONGROUND) && !g_bDoubleJumped[client])
+	{
+		DoClientDoubleJump(client);
+		g_bDoubleJumped[client] = true;
+	}
+	g_LastButtons[client] = buttons;
+	return Plugin_Continue;
+}
+
+stock DoClientDoubleJump(client)
+{
+	decl Float:forwardVector[3];
+	new Float:x, Float:y, Float:z;
+	CleanupClientDirection(client, GetClientButtons(client), x, y, z);
+	forwardVector[0] = x;
+	forwardVector[1] = y;
+	forwardVector[2] = z;
+	new Float:speed = GetEntPropFloat(client, Prop_Send, "m_flMaxspeed");
+	ScaleVector(forwardVector, speed);
+//	GetClientEyeAngles(client, clientEyeAngle);
+//	clientEyeAngle[2] = 290.0;
+//	GetAngleVectors(clientEyeAngle, forwardVector, NULL_VECTOR, NULL_VECTOR);
+//	NormalizeVector(forwardVector, forwardVector);
+//	ScaleVector(forwardVector, 290.0);
+	forwardVector[2] = 245.0;
+	TeleportEntity(client, NULL_VECTOR, NULL_VECTOR, forwardVector);
+}
+
+stock CleanupClientDirection(client, buttons, &Float:x, &Float:y, &Float:z)
+{
+//	if (buttons & IN_LEFT) PrintToChatAll("left");
+//	if (buttons & IN_RIGHT) PrintToChatAll("right");
+	buttons = buttons & (IN_FORWARD|IN_BACK|IN_MOVELEFT|IN_MOVERIGHT);
+//	if (buttons & IN_FORWARD) PrintToChatAll("forward");
+//	if (buttons & IN_BACK) PrintToChatAll("back");
+//	if (buttons & IN_MOVELEFT) PrintToChatAll("moveleft");
+//	if (buttons & IN_MOVERIGHT) PrintToChatAll("moveright");
+	if ((buttons & (IN_FORWARD|IN_BACK)) == (IN_FORWARD|IN_BACK))
+	{
+		buttons &= ~IN_FORWARD;
+		buttons &= ~IN_BACK;
+	}
+	if ((buttons & (IN_MOVELEFT|IN_MOVERIGHT)) == (IN_MOVELEFT|IN_MOVERIGHT))
+	{
+		buttons &= ~IN_MOVELEFT;
+		buttons &= ~IN_MOVERIGHT;
+	}
+	if ((buttons & (IN_FORWARD|IN_BACK|IN_MOVELEFT|IN_MOVERIGHT)) == 0)
+	{
+		x = 0.0;
+		y = 0.0;
+		z = 230.0;
+//		PrintToChatAll("Returning prematurely");
+		return;
+	}
+	decl Float:clientEyeAngle[3];
+	GetClientEyeAngles(client, clientEyeAngle);
+	clientEyeAngle[0] = 0.0;
+	clientEyeAngle[2] = 0.0;
+	switch (buttons)
+	{
+		case (IN_FORWARD|IN_MOVELEFT): clientEyeAngle[1] += 45.0;
+		case (IN_FORWARD|IN_MOVERIGHT): clientEyeAngle[1] -= 45.0;
+		case (IN_BACK|IN_MOVELEFT): clientEyeAngle[1] += 135.0;
+		case (IN_BACK|IN_MOVERIGHT): clientEyeAngle[1] -= 135.0;
+		case (IN_MOVELEFT): clientEyeAngle[1] += 90.0;
+		case (IN_BACK): clientEyeAngle[1] += 179.9;
+		case (IN_MOVERIGHT): clientEyeAngle[1] -= 90.0;
+		default: {}
+	}
+	if (clientEyeAngle[1] <= -180.0) clientEyeAngle[1] += 360.0;
+	if (clientEyeAngle[1] > 180.0) clientEyeAngle[1] -= 360.0;
+//	PrintToChatAll("%.2f yaw", clientEyeAngle[1]);
+	GetAngleVectors(clientEyeAngle, clientEyeAngle, NULL_VECTOR, NULL_VECTOR);
+//	PrintToChatAll("%.2f %.2f %.2f direction", clientEyeAngle[0],clientEyeAngle[1],clientEyeAngle[2]);
+	NormalizeVector(clientEyeAngle, clientEyeAngle);
+//	PrintToChatAll("%.2f %.2f %.2f direnormal", clientEyeAngle[0],clientEyeAngle[1],clientEyeAngle[2]);
+//	AddVectors(clientEyeAngle, vector, vector);
+//	NormalizeVector(vector, vector);
+	x = clientEyeAngle[0];
+	y = clientEyeAngle[1];
+	z = clientEyeAngle[2];
+}

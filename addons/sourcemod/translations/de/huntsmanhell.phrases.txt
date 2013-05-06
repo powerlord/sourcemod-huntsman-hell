@@ -1,0 +1,82 @@
+"Phrases"
+{
+	"jump_status"
+	{
+		"de"	"Sprung-Ladung: {1} Prozent. Schau nach oben und steh auf um einen Super-Sprung auszuführen."
+	}
+	"jump_status_2"
+	{
+		"de"	"Super-Sprung ist wieder ausführbar in: {1}"
+	}
+
+	"help_title"
+	{
+		"de"	"Huntsman Hell-Hilfe"
+	}
+
+	"login_help"
+	{
+		"de"	"Willkommen bei Huntsman Hell. Für Infos zu Huntsman Hell, schreib /hh_help"
+	}
+
+	"help_basic"
+	{
+		"de"	"Huntsman Hell ist ein Spielmodus, in dem alle Spieler Sniper mit dem Huntsman und Jarate spielen."
+	}
+
+	"help_arrows"
+	{
+		"de"	"Alle Spieler starten mit {1} {2} Pfeilen"
+	}
+
+	"help_arrows_normal"
+	{
+		"de"	"normalen"
+	}
+
+	"help_arrows_exploding"
+	{
+		"de"	"explodierenden"
+	}
+
+	"help_arrows_fire"
+	{
+		"de"	"brennenden"
+	}
+
+	"help_arrows_explodingfire"
+	{
+		"de"	"explodierenden und brennenden"
+	}
+
+	"help_explosionsfire"
+	{
+		"de"	"Explosionen werden Gegner in Brand stecken"
+	}
+
+	"help_explosionsfireself"
+	{
+		"de"	"Explosionen werden Gegner und den Spieler, der den Pfeil gefeuert hat, in Brand stecken"
+	}
+
+	"help_health"
+	{
+		"de"	"Alle Spieler starten mit {1} Gesundheitspunkten"
+	}
+
+	"help_superjump"
+	{
+		"de"	"Um einen Super-Sprung auszuführen, halte attack2 oder ducke dich, dann schau nach oben und lass los"
+	}
+
+	"help_doublejump"
+	{
+		"de"	"Alle Spieler können einen Doppelsprung ausführen"
+	}
+
+	"help_falldamage"
+	{
+		"de"	"Spieler nehmen keinen Fallschaden"
+	}
+
+}

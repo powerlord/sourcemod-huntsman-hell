@@ -50,7 +50,7 @@ new Handle:g_Cvar_GameDescription = INVALID_HANDLE;
 
 new Handle:jumpHUD;
 
-new g_JumpCharge[MAXPLAYERS] = { 0, ... };
+new g_JumpCharge[MAXPLAYERS+1] = { 0, ... };
 
 new bool:g_SteamTools = false;
 

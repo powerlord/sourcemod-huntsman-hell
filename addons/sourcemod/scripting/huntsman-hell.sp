@@ -170,13 +170,25 @@ public Action:Cmd_Help(client, args)
 	IntToString(GetConVarInt(g_Cvar_StartingHealth), numbers, sizeof(numbers));
 	AddMenuItem(menu, "help_health", numbers, ITEMDRAW_DISABLED);
 	
-	AddMenuItem(menu, "help_explosions", "help_explosions", ITEMDRAW_DISABLED);
+	if (GetConVarBool(g_Cvar_Explode))
+	{
+		AddMenuItem(menu, "help_explosions", "help_explosions", ITEMDRAW_DISABLED);
+	}
 	
-	AddMenuItem(menu, "help_doublejump", "help_doublejump", ITEMDRAW_DISABLED);
+	if (GetConVarBool(g_Cvar_DoubleJump))
+	{
+		AddMenuItem(menu, "help_doublejump", "help_doublejump", ITEMDRAW_DISABLED);
+	}
 	
-	AddMenuItem(menu, "help_superjump", "help_superjump", ITEMDRAW_DISABLED);
+	if (GetConVarBool(g_Cvar_SuperJump))
+	{
+		AddMenuItem(menu, "help_superjump", "help_superjump", ITEMDRAW_DISABLED);
+	}
 	
-	AddMenuItem(menu, "help_falldamage", "help_falldamage", ITEMDRAW_DISABLED);
+	if (!GetConVarBool(g_Cvar_FallDamage))
+	{
+		AddMenuItem(menu, "help_falldamage", "help_falldamage", ITEMDRAW_DISABLED);
+	}
 	
 	DisplayMenu(menu, client, MENU_TIME_FOREVER);
 	

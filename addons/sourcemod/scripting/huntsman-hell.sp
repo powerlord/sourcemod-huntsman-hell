@@ -21,7 +21,7 @@
 #define JUMPCHARGETIME 1
 #define JUMPCHARGE (25 * JUMPCHARGETIME)
 
-#define VERSION "1.6.0"
+#define VERSION "1.7.0"
 
 public Plugin:myinfo = 
 {
@@ -48,6 +48,8 @@ new Handle:g_Cvar_SuperJump = INVALID_HANDLE;
 new Handle:g_Cvar_DoubleJump = INVALID_HANDLE;
 new Handle:g_Cvar_FallDamage = INVALID_HANDLE;
 new Handle:g_Cvar_GameDescription = INVALID_HANDLE;
+new Handle:g_Cvar_MedicRound = INVALID_HANDLE;
+new Handle:g_Cvar_MedicArrowCount = INVALID_HANDLE;
 
 new Handle:jumpHUD;
 
@@ -60,6 +62,8 @@ new bool:g_bSteamTools = false;
 
 new bool:g_bLateLoad = false;
 
+new bool:g_bMedicRound = false;
+
 public APLRes:AskPluginLoad2(Handle:myself, bool:late, String:error[], err_max)
 {
 	MarkNativeAsOptional("Steam_SetGameDescription");
@@ -70,19 +74,21 @@ public APLRes:AskPluginLoad2(Handle:myself, bool:late, String:error[], err_max)
 public OnPluginStart()
 {
 	CreateConVar("huntsmanhell_version", VERSION, "Huntsman Hell Version", FCVAR_NOTIFY|FCVAR_PLUGIN|FCVAR_DONTRECORD);
-	g_Cvar_Enabled = CreateConVar("huntsmanhell_enabled", "1.0", "Enable Huntsman Hell?", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 1.0);
-	g_Cvar_Explode = CreateConVar("huntsmanhell_explode", "1.0", "Should arrows explode when they hit something?", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 1.0);
-	g_Cvar_ExplodeRadius = CreateConVar("huntsmanhell_exploderadius", "200.0", "If arrows explode, the radius of explosion in hammer units.", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 1.0);
-	g_Cvar_ExplodeDamage = CreateConVar("huntsmanhell_explodedamage", "50.0", "If arrows explode, the damage the explosion does.", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 1.0);
-	g_Cvar_ExplodeFire = CreateConVar("huntsmanhell_explodefire", "1.0", "Should explosions catch players on fire?", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 1.0);
-	g_Cvar_ExplodeFireSelf = CreateConVar("huntsmanhell_explodefireself", "0.0", "Should explosions catch yourself on fire?", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 1.0);
-	g_Cvar_FireArrows = CreateConVar("huntsmanhell_firearrows", "1.0", "Should all arrows catch on fire in Huntsman Hell?", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 1.0);
-	g_Cvar_ArrowCount = CreateConVar("huntsmanhell_arrowmultiplier", "4.0", "How many times the normal number of arrows should we have? Normal arrow count is 13", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 8.0);
-	g_Cvar_StartingHealth = CreateConVar("huntsmanhell_health", "400.0", "Amount of Health players to start with", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 65.0, true, 800.0);
-	g_Cvar_SuperJump = CreateConVar("huntsmanhell_superjump", "1.0", "Should super jump be enabled in Huntsman Hell?", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 1.0);
-	g_Cvar_DoubleJump = CreateConVar("huntsmanhell_doublejump", "1.0", "Should double jump be enabled in Huntsman Hell?", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 1.0);
-	g_Cvar_FallDamage = CreateConVar("huntsmanhell_falldamage", "0.0", "Should players take fall damage?", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 1.0);
-	g_Cvar_GameDescription = CreateConVar("huntsmanhell_gamedescription", "1.0", "If SteamTools is loaded, set the Game Description to Huntsman Hell?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
+	g_Cvar_Enabled = CreateConVar("huntsmanhell_enabled", "1", "Enable Huntsman Hell?", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 1.0);
+	g_Cvar_Explode = CreateConVar("huntsmanhell_explode", "1", "Should arrows explode when they hit something?", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 1.0);
+	g_Cvar_ExplodeRadius = CreateConVar("huntsmanhell_exploderadius", "200", "If arrows explode, the radius of explosion in hammer units.", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 1.0);
+	g_Cvar_ExplodeDamage = CreateConVar("huntsmanhell_explodedamage", "50", "If arrows explode, the damage the explosion does.", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 1.0);
+	g_Cvar_ExplodeFire = CreateConVar("huntsmanhell_explodefire", "0", "Should explosions catch players on fire?", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 1.0);
+	g_Cvar_ExplodeFireSelf = CreateConVar("huntsmanhell_explodefireself", "0", "Should explosions catch yourself on fire?", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 1.0);
+	g_Cvar_FireArrows = CreateConVar("huntsmanhell_firearrows", "1", "Should all arrows catch on fire in Huntsman Hell?", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 1.0);
+	g_Cvar_ArrowCount = CreateConVar("huntsmanhell_arrowmultiplier", "4.0", "How many times the normal number of arrows should we have? Normal arrow count is 12.5 (rounded down to 12)", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 8.0);
+	g_Cvar_StartingHealth = CreateConVar("huntsmanhell_health", "400", "Amount of Health players to start with", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 65.0, true, 800.0);
+	g_Cvar_SuperJump = CreateConVar("huntsmanhell_superjump", "1", "Should super jump be enabled in Huntsman Hell?", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 1.0);
+	g_Cvar_DoubleJump = CreateConVar("huntsmanhell_doublejump", "1", "Should double jump be enabled in Huntsman Hell?", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 1.0);
+	g_Cvar_FallDamage = CreateConVar("huntsmanhell_falldamage", "0", "Should players take fall damage?", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 1.0);
+	g_Cvar_GameDescription = CreateConVar("huntsmanhell_gamedescription", "1", "If SteamTools is loaded, set the Game Description to Huntsman Hell?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
+	g_Cvar_MedicRound = CreateConVar("huntsmanhell_medicchance", "10", "Chance of the current round being a Medic round", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 100.0);
+	g_Cvar_MedicArrowCount = CreateConVar("huntsmanhell_medicarrowmultiplier", "1.32", "How many times the normal number of arrows should we have? Normal arrow count is 37.5 (rounded up to 38)", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 8.0);
 
 	HookEvent("player_spawn", Event_PlayerSpawn);
 	HookEvent("teamplay_round_start", Event_RoundStart);
@@ -297,7 +303,12 @@ public Cvar_Enabled(Handle:convar, const String:oldValue[], const String:newValu
 	
 	for (new i = 1; i <= MaxClients; ++i)
 	{
-		if (IsClientInGame(i) && IsPlayerAlive(i))
+		if (!IsClientInGame(i))
+		{
+			continue;
+		}
+		
+		if (IsPlayerAlive(i))
 		{
 			TF2_RemoveAllWeapons(i);
 			if (GetConVarBool(g_Cvar_Enabled))
@@ -418,6 +429,17 @@ public Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
 	{
 		g_JumpCharge[i] = 0;
 	}
+	
+	new chance = GetRandomInt(1, 100);
+	if (GetConVarInt(g_Cvar_MedicRound) <= chance)
+	{
+		g_bMedicRound = true;
+	}
+	else
+	{
+		g_bMedicRound = false;
+	}
+	
 }
 
 public Event_PlayerSpawn(Handle:event, const String:name[], bool:dontBroadcast)
@@ -439,16 +461,30 @@ public Event_PlayerSpawn(Handle:event, const String:name[], bool:dontBroadcast)
 	g_JumpCharge[client] = 0;
 	
 	new TFClassType:class = TFClassType:GetEventInt(event, "class");
-	if (class != TFClass_Sniper)
+	
+	if (g_bMedicRound)
 	{
-		// Directions say param 3 is both ignored and to set it to false in a player spawn hook...
-		TF2_SetPlayerClass(client, TFClass_Sniper, false); 
-		
-		TF2_RespawnPlayer(client);
+		if (class != TFClass_Medic)
+		{
+			// Directions say param 3 is both ignored and to set it to false in a player spawn hook...
+			TF2_SetPlayerClass(client, TFClass_Medic, false); 
+			
+			TF2_RespawnPlayer(client);
+		}
+	}
+	else
+	{
+		if (class != TFClass_Sniper)
+		{
+			// Directions say param 3 is both ignored and to set it to false in a player spawn hook...
+			TF2_SetPlayerClass(client, TFClass_Sniper, false); 
+			
+			TF2_RespawnPlayer(client);
+		}
 	}
 
-	SetEntProp(client, Prop_Data, "m_iMaxHealth", GetConVarInt(g_Cvar_StartingHealth));
-	SetEntProp(client, Prop_Send, "m_iHealth", GetConVarInt(g_Cvar_StartingHealth));
+	//SetEntProp(client, Prop_Data, "m_iMaxHealth", GetConVarInt(g_Cvar_StartingHealth));
+	//SetEntProp(client, Prop_Send, "m_iHealth", GetConVarInt(g_Cvar_StartingHealth));
 }
 
 public Event_Inventory(Handle:event, const String:name[], bool:dontBroadcast)
@@ -460,49 +496,88 @@ public Event_Inventory(Handle:event, const String:name[], bool:dontBroadcast)
 	
 	new userid = GetEventInt(event, "userid");
 	new client = GetClientOfUserId(userid);
-	
-	// This is to prevent replacing their inventory if they just spawned as a different class and we haven't changed them yet
-	if (TF2_GetPlayerClass(client) != TFClass_Sniper)
-	{
-		return;
-	}
-	
-	new secondary = GetPlayerWeaponSlot(client, TFWeaponSlot_Secondary);
-	
-	if (secondary == -1)
-	{
-		new Handle:item = TF2Items_CreateItem(OVERRIDE_ALL);
-		TF2Items_SetClassname(item, "tf_weapon_jar");
-		TF2Items_SetItemIndex(item, 58);
-		TF2Items_SetLevel(item, 5);
-		TF2Items_SetQuality(item, 6);
-		TF2Items_SetNumAttributes(item, 2);
-		TF2Items_SetAttribute(item, 0, 56, 1.0);
-		TF2Items_SetAttribute(item, 1, 292, 4.0);
-		secondary = TF2Items_GiveNamedItem(client, item);
-		CloseHandle(item);
-		EquipPlayerWeapon(client, secondary);
-	}
-
-	new primary = GetPlayerWeaponSlot(client, TFWeaponSlot_Primary);
-	if (primary == -1)
-	{
-		new Handle:item = TF2Items_CreateItem(OVERRIDE_ALL);
-		TF2Items_SetClassname(item, "tf_weapon_compound_bow");
-		TF2Items_SetItemIndex(item, 56);
-		TF2Items_SetLevel(item, 10);
-		TF2Items_SetQuality(item, 6);
-		TF2Items_SetNumAttributes(item, 1);
-		//TF2Items_SetAttribute(item, 0, 37, 0.5);
-		TF2Items_SetAttribute(item, 0, 328, 1.0);
-		primary = TF2Items_GiveNamedItem(client, item);
-		CloseHandle(item);
-		EquipPlayerWeapon(client, primary);
-	}
-	
-	TF2Attrib_SetByName(primary, "hidden primary max ammo bonus", GetConVarFloat(g_Cvar_ArrowCount) / 2.0);
-	
 	new healthDiff = (GetConVarInt(g_Cvar_StartingHealth) - 125);
+
+	if (g_bMedicRound)
+	{
+		// This is to prevent replacing their inventory if they just spawned as a different class and we haven't changed them yet
+		if (TF2_GetPlayerClass(client) != TFClass_Medic)
+		{
+			return;
+		}
+		
+		new primary = GetPlayerWeaponSlot(client, TFWeaponSlot_Primary);
+		if (primary == -1)
+		{
+			new Handle:item = TF2Items_CreateItem(OVERRIDE_ALL);
+			TF2Items_SetClassname(item, "tf_weapon_crossbow");
+			TF2Items_SetItemIndex(item, 305);
+			TF2Items_SetLevel(item, 15);
+			TF2Items_SetQuality(item, 6);
+			TF2Items_SetNumAttributes(item, 4);
+			TF2Items_SetAttribute(item, 0, 199, 1.0); // "fires healing bolts"
+			TF2Items_SetAttribute(item, 0, 97, 0.6); // "Reload time decreased"
+			primary = TF2Items_GiveNamedItem(client, item);
+			CloseHandle(item);
+			EquipPlayerWeapon(client, primary);
+		}
+		else
+		{
+			TF2Attrib_RemoveByName(primary, "sniper no headshots");
+		}	
+		
+		// Base is 150 and normally set to 0.25
+		TF2Attrib_SetByName(primary, "maxammo primary reduced", GetConVarFloat(g_Cvar_MedicArrowCount) / 4.0);
+		
+		// Remove Medic set bonus
+		TF2Attrib_RemoveByName(client, "health regen set bonus");
+
+		healthDiff = (GetConVarInt(g_Cvar_StartingHealth) - 150);
+	}
+	else
+	{
+		// This is to prevent replacing their inventory if they just spawned as a different class and we haven't changed them yet
+		if (TF2_GetPlayerClass(client) != TFClass_Sniper)
+		{
+			return;
+		}
+		
+		new secondary = GetPlayerWeaponSlot(client, TFWeaponSlot_Secondary);
+		
+		if (secondary == -1)
+		{
+			new Handle:item = TF2Items_CreateItem(OVERRIDE_ALL);
+			TF2Items_SetClassname(item, "tf_weapon_jar");
+			TF2Items_SetItemIndex(item, 58);
+			TF2Items_SetLevel(item, 5);
+			TF2Items_SetQuality(item, 6);
+			TF2Items_SetNumAttributes(item, 2);
+			TF2Items_SetAttribute(item, 0, 56, 1.0);
+			TF2Items_SetAttribute(item, 1, 292, 4.0);
+			secondary = TF2Items_GiveNamedItem(client, item);
+			CloseHandle(item);
+			EquipPlayerWeapon(client, secondary);
+		}
+
+		new primary = GetPlayerWeaponSlot(client, TFWeaponSlot_Primary);
+		if (primary == -1)
+		{
+			new Handle:item = TF2Items_CreateItem(OVERRIDE_ALL);
+			TF2Items_SetClassname(item, "tf_weapon_compound_bow");
+			TF2Items_SetItemIndex(item, 56);
+			TF2Items_SetLevel(item, 10);
+			TF2Items_SetQuality(item, 6);
+			TF2Items_SetNumAttributes(item, 1);
+			//TF2Items_SetAttribute(item, 0, 37, 0.5);
+			TF2Items_SetAttribute(item, 0, 328, 1.0);
+			primary = TF2Items_GiveNamedItem(client, item);
+			CloseHandle(item);
+			EquipPlayerWeapon(client, primary);
+		}
+		// Base is 25 and normally set to 0.50
+		TF2Attrib_SetByName(primary, "hidden primary max ammo bonus", GetConVarFloat(g_Cvar_ArrowCount) / 2.0);
+
+		healthDiff = (GetConVarInt(g_Cvar_StartingHealth) - 125);	}
 	
 	if (healthDiff > 0)
 	{
@@ -541,10 +616,17 @@ public Action:TF2Items_OnGiveNamedItem(client, String:classname[], iItemDefiniti
 	}
 	
 	// Block SMG, shields, and sniper rifles
-	if (StrEqual(classname, "tf_weapon_smg") || iItemDefinitionIndex == 57 || iItemDefinitionIndex == 231 || iItemDefinitionIndex == 642|| StrEqual(classname, "tf_weapon_sniperrifle") || StrEqual(classname, "tf_weapon_sniperrifle_decap"))
+	if (StrEqual(classname, "tf_weapon_smg") || iItemDefinitionIndex == 57 || iItemDefinitionIndex == 231 || iItemDefinitionIndex == 642 || StrEqual(classname, "tf_weapon_sniperrifle") || StrEqual(classname, "tf_weapon_sniperrifle_decap"))
 	{
 		return Plugin_Handled;
 	}
+	
+	// Block Syringe Guns and Mediguns
+	if (StrEqual(classname, "tf_weapon_syringegun_medic") || StrEqual(classname, "tf_weapon_medigun"))
+	{
+		return Plugin_Handled;
+	}
+	
 	
 	return Plugin_Continue;
 }

@@ -13,7 +13,9 @@
 #pragma semicolon 1
 
 #define BOW "tf_weapon_compound_bow"
+#define CROSSBOW "tf_weapon_crossbow"
 #define ARROW "tf_projectile_arrow"
+#define HEALING_BOLT "tf_projectile_healing_bolt"
 #define KILL_FLAMETHROWER "flamethrower"
 #define KILL_FIREARROW "huntsman"
 #define KILL_EXPLOSION "env_explosion"
@@ -34,6 +36,7 @@ public Plugin:myinfo =
 
 new String:g_Sounds_Explode[][] = {"weapons/explode1.wav", "weapons/explode2.wav", "weapons/explode3.wav" };
 new String:g_Sounds_Jump[][] = { "vo/sniper_specialcompleted02.wav", "vo/sniper_specialcompleted17.wav", "vo/sniper_specialcompleted19.wav", "vo/sniper_laughshort01.wav", "vo/sniper_laughshort04.wav" };
+new String:g_Sounds_MedicJump[][] = { "vo/medic_mvm_say_ready02.wav", "vo/medic_mvm_wave_end06.wav", "vo/medic_negativevocalization05.wav", "vo/medic_sf12_badmagic09.wav", "vo/medic_sf12_taunts03.wav" };
 
 new Handle:g_Cvar_Enabled = INVALID_HANDLE;
 new Handle:g_Cvar_Explode = INVALID_HANDLE;
@@ -81,14 +84,14 @@ public OnPluginStart()
 	g_Cvar_ExplodeFire = CreateConVar("huntsmanhell_explodefire", "0", "Should explosions catch players on fire?", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 1.0);
 	g_Cvar_ExplodeFireSelf = CreateConVar("huntsmanhell_explodefireself", "0", "Should explosions catch yourself on fire?", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 1.0);
 	g_Cvar_FireArrows = CreateConVar("huntsmanhell_firearrows", "1", "Should all arrows catch on fire in Huntsman Hell?", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 1.0);
-	g_Cvar_ArrowCount = CreateConVar("huntsmanhell_arrowmultiplier", "4.0", "How many times the normal number of arrows should we have? Normal arrow count is 12.5 (rounded down to 12)", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 8.0);
+	g_Cvar_ArrowCount = CreateConVar("huntsmanhell_arrowmultiplier", "4.0", "How many times the normal number of arrows should we have? Normal arrow count is 12.5 (banker rounded down to 12)", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 8.0);
 	g_Cvar_StartingHealth = CreateConVar("huntsmanhell_health", "400", "Amount of Health players to start with", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 65.0, true, 800.0);
 	g_Cvar_SuperJump = CreateConVar("huntsmanhell_superjump", "1", "Should super jump be enabled in Huntsman Hell?", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 1.0);
 	g_Cvar_DoubleJump = CreateConVar("huntsmanhell_doublejump", "1", "Should double jump be enabled in Huntsman Hell?", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 1.0);
 	g_Cvar_FallDamage = CreateConVar("huntsmanhell_falldamage", "0", "Should players take fall damage?", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 1.0);
 	g_Cvar_GameDescription = CreateConVar("huntsmanhell_gamedescription", "1", "If SteamTools is loaded, set the Game Description to Huntsman Hell?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
 	g_Cvar_MedicRound = CreateConVar("huntsmanhell_medicchance", "10", "Chance of the current round being a Medic round", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 100.0);
-	g_Cvar_MedicArrowCount = CreateConVar("huntsmanhell_medicarrowmultiplier", "1.32", "How many times the normal number of arrows should we have? Normal arrow count is 37.5 (rounded up to 38)", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 8.0);
+	g_Cvar_MedicArrowCount = CreateConVar("huntsmanhell_medicarrowmultiplier", "1.32", "How many times the normal number of arrows should we have? Normal arrow count is 37.5 (banker rounded up to 38)", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 8.0);
 
 	HookEvent("player_spawn", Event_PlayerSpawn);
 	HookEvent("teamplay_round_start", Event_RoundStart);
@@ -138,6 +141,11 @@ public OnMapStart()
 	for (new i = 0; i < sizeof(g_Sounds_Jump); ++i)
 	{
 		PrecacheSound(g_Sounds_Jump[i]);
+	}
+	
+	for (new i = 0; i < sizeof(g_Sounds_MedicJump); ++i)
+	{
+		PrecacheSound(g_Sounds_MedicJump[i]);
 	}
 }
 
@@ -430,16 +438,34 @@ public Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
 		g_JumpCharge[i] = 0;
 	}
 	
-	new chance = GetRandomInt(1, 100);
-	if (GetConVarInt(g_Cvar_MedicRound) <= chance)
+	new percent = GetConVarInt(g_Cvar_MedicRound);
+	// Do a switch so we don't waste our time with random if it's always on or off.
+	switch (percent)
 	{
-		g_bMedicRound = true;
+		case 0:
+		{
+			g_bMedicRound = false;
+		}
+		
+		case 100:
+		{
+			g_bMedicRound = true;
+		}
+		
+		default:
+		{
+			new chance = GetRandomInt(1, 100);
+			if (chance <= percent)
+			{
+				g_bMedicRound = true;
+			}
+			else
+			{
+				g_bMedicRound = false;
+			}
+			
+		}
 	}
-	else
-	{
-		g_bMedicRound = false;
-	}
-	
 }
 
 public Event_PlayerSpawn(Handle:event, const String:name[], bool:dontBroadcast)
@@ -514,9 +540,10 @@ public Event_Inventory(Handle:event, const String:name[], bool:dontBroadcast)
 			TF2Items_SetItemIndex(item, 305);
 			TF2Items_SetLevel(item, 15);
 			TF2Items_SetQuality(item, 6);
-			TF2Items_SetNumAttributes(item, 4);
+			TF2Items_SetNumAttributes(item, 3);
 			TF2Items_SetAttribute(item, 0, 199, 1.0); // "fires healing bolts"
-			TF2Items_SetAttribute(item, 0, 97, 0.6); // "Reload time decreased"
+			TF2Items_SetAttribute(item, 1, 42, 1.0); // "sniper no headshots"
+			TF2Items_SetAttribute(item, 2, 97, 0.6); // "Reload time decreased"
 			primary = TF2Items_GiveNamedItem(client, item);
 			CloseHandle(item);
 			EquipPlayerWeapon(client, primary);
@@ -524,6 +551,7 @@ public Event_Inventory(Handle:event, const String:name[], bool:dontBroadcast)
 		else
 		{
 			TF2Attrib_RemoveByName(primary, "sniper no headshots");
+			TF2Attrib_RemoveByName(primary, "fires healing bolts");
 		}	
 		
 		// Base is 150 and normally set to 0.25
@@ -640,13 +668,24 @@ public OnEntityCreated(entity, const String:classname[])
 	
 	if (StrEqual(classname, ARROW))
 	{
-		
 		if (GetConVarBool(g_Cvar_Explode))
 		{
 			SDKHook(entity, SDKHook_StartTouchPost, Arrow_Explode);
 		}
 	}
 
+	if (StrEqual(classname, HEALING_BOLT))
+	{
+		if (GetConVarBool(g_Cvar_Explode))
+		{
+			SDKHook(entity, SDKHook_StartTouchPost, Arrow_Explode);
+		}
+		
+		if (GetConVarBool(g_Cvar_FireArrows))
+		{
+			SDKHook(entity, SDKHook_SpawnPost, Arrow_Light);
+		}
+	}
 }
 
 public Arrow_Explode(entity, other)
@@ -688,6 +727,16 @@ public Arrow_Explode(entity, other)
 	new random = GetRandomInt(0, sizeof(g_Sounds_Explode)-1);
 	EmitSoundToAll(g_Sounds_Explode[random], entity, SNDCHAN_WEAPON, _, _, _, _, _, origin);
 }
+
+public Arrow_Light(entity)
+{
+	// Sniper arrows will be already lit, but Medic arrows won't
+	if (!GetEntProp(entity, Prop_Send, "m_bArrowAlight"))
+	{
+		SetEntProp(entity, Prop_Send, "m_bArrowAlight", true);
+	}
+}
+
 
 public Action:Timer_DestroyExplosion(Handle:timer, any:explosionRef)
 {
@@ -738,7 +787,7 @@ public Action:JumpTimer(Handle:hTimer)
 			g_bDoubleJumped[i] = false;
 		}
 		
-		if (GetConVarBool(g_Cvar_FireArrows))
+		if (GetConVarBool(g_Cvar_FireArrows) && !g_bMedicRound)
 		{
 			new primary = GetPlayerWeaponSlot(i, TFWeaponSlot_Primary);
 			new currentWeapon = GetEntPropEnt(i, Prop_Send, "m_hActiveWeapon");
@@ -789,8 +838,16 @@ public Action:JumpTimer(Handle:hTimer)
 				TeleportEntity(i, NULL_VECTOR, NULL_VECTOR, vel);
 				g_JumpCharge[i]=-120;
 				
-				new random = GetRandomInt(0, sizeof(g_Sounds_Jump)-1);
-				EmitSoundToAll(g_Sounds_Jump[random], i, SNDCHAN_VOICE, SNDLEVEL_TRAFFIC, _, _, _, _, pos);
+				if (g_bMedicRound)
+				{
+					new random = GetRandomInt(0, sizeof(g_Sounds_MedicJump)-1);
+					EmitSoundToAll(g_Sounds_MedicJump[random], i, SNDCHAN_VOICE, SNDLEVEL_TRAFFIC, _, _, _, _, pos);
+				}
+				else
+				{
+					new random = GetRandomInt(0, sizeof(g_Sounds_Jump)-1);
+					EmitSoundToAll(g_Sounds_Jump[random], i, SNDCHAN_VOICE, SNDLEVEL_TRAFFIC, _, _, _, _, pos);
+				}
 			}
 			else
 			{

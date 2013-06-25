@@ -113,6 +113,10 @@ public OnPluginStart()
 public OnAllPluginsLoaded()
 {
 	g_bSteamTools = LibraryExists("SteamTools");
+	if (g_bSteamTools)
+	{
+		UpdateGameDescription();
+	}
 }
 
 public OnLibraryAdded(const String:name[])
@@ -120,6 +124,7 @@ public OnLibraryAdded(const String:name[])
 	if (StrEqual(name, "SteamTools", false))
 	{
 		g_bSteamTools = true;
+		UpdateGameDescription();
 	}
 }
 

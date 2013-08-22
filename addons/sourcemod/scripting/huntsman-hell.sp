@@ -118,7 +118,7 @@ public OnPluginEnd()
 {
 	if (g_bMultiMod)
 	{
-		OptInMultiMod_Unregister();
+		OptInMultiMod_Unregister("Huntsman Hell");
 	}
 }
 

@@ -10,6 +10,9 @@
 #undef REQUIRE_EXTENSIONS
 #include <steamtools>
 
+#undef REQUIRE_PLUGIN
+#include <optin_multimod>
+
 #pragma semicolon 1
 
 #define BOW "tf_weapon_compound_bow"
@@ -62,6 +65,7 @@ new bool:g_bDoubleJumped[MAXPLAYERS+1];
 new g_LastButtons[MAXPLAYERS+1];
 
 new bool:g_bSteamTools = false;
+new bool:g_bMultiMod = false;
 
 new bool:g_bLateLoad = false;
 
@@ -110,12 +114,26 @@ public OnPluginStart()
 	AutoExecConfig(true, "huntsmanhell");
 }
 
+public OnPluginEnd()
+{
+	if (g_bMultiMod)
+	{
+		OptInMultiMod_Unregister();
+	}
+}
+
 public OnAllPluginsLoaded()
 {
 	g_bSteamTools = LibraryExists("SteamTools");
 	if (g_bSteamTools)
 	{
 		UpdateGameDescription();
+	}
+	
+	g_bMultiMod = LibraryExists("optin_multimod");
+	if (g_bMultiMod)
+	{
+		OptInMultiMod_Register("Huntsman Hell", MultiMod_CheckValidMap, MultiMod_StatusChanged);
 	}
 }
 
@@ -126,6 +144,11 @@ public OnLibraryAdded(const String:name[])
 		g_bSteamTools = true;
 		UpdateGameDescription();
 	}
+	else if (StrEqual(name, "optin_multimod", false))
+	{
+		g_bMultiMod = true;
+		OptInMultiMod_Register("Huntsman Hell", MultiMod_CheckValidMap, MultiMod_StatusChanged);
+	}
 }
 
 public OnLibraryRemoved(const String:name[])
@@ -133,6 +156,10 @@ public OnLibraryRemoved(const String:name[])
 	if (StrEqual(name, "SteamTools", false))
 	{
 		g_bSteamTools = false;
+	}
+	else if (StrEqual(name, "optin_multimod", false))
+	{
+		g_bMultiMod = false;
 	}
 }
 
@@ -553,18 +580,10 @@ public Event_Inventory(Handle:event, const String:name[], bool:dontBroadcast)
 			CloseHandle(item);
 			EquipPlayerWeapon(client, primary);
 		}
-		else
-		{
-			TF2Attrib_RemoveByName(primary, "sniper no headshots");
-			TF2Attrib_RemoveByName(primary, "fires healing bolts");
-		}	
 		
 		// Base is 150 and normally set to 0.25
-		TF2Attrib_SetByName(primary, "maxammo primary reduced", GetConVarFloat(g_Cvar_MedicArrowCount) / 4.0);
+		TF2Attrib_SetByName(primary, "maxammo primary reduced", GetConVarFloat(g_Cvar_MedicArrowCount) * 0.25);
 		
-		// Remove Medic set bonus
-		TF2Attrib_RemoveByName(client, "health regen set bonus");
-
 		healthDiff = (GetConVarInt(g_Cvar_StartingHealth) - 150);
 	}
 	else
@@ -585,8 +604,8 @@ public Event_Inventory(Handle:event, const String:name[], bool:dontBroadcast)
 			TF2Items_SetLevel(item, 5);
 			TF2Items_SetQuality(item, 6);
 			TF2Items_SetNumAttributes(item, 2);
-			TF2Items_SetAttribute(item, 0, 56, 1.0);
-			TF2Items_SetAttribute(item, 1, 292, 4.0);
+			TF2Items_SetAttribute(item, 0, 56, 1.0); // "jarate description"
+			TF2Items_SetAttribute(item, 1, 292, 4.0); // "kill eater score type"
 			secondary = TF2Items_GiveNamedItem(client, item);
 			CloseHandle(item);
 			EquipPlayerWeapon(client, secondary);
@@ -603,12 +622,12 @@ public Event_Inventory(Handle:event, const String:name[], bool:dontBroadcast)
 			TF2Items_SetNumAttributes(item, 1);
 			//TF2Items_SetAttribute(item, 0, 37, 0.5);
 			TF2Items_SetAttribute(item, 0, 328, 1.0);
-			primary = TF2Items_GiveNamedItem(client, item);
+			primary = TF2Items_GiveNamedItem(client, item); // disable fancy class select anim
 			CloseHandle(item);
 			EquipPlayerWeapon(client, primary);
 		}
 		// Base is 25 and normally set to 0.50
-		TF2Attrib_SetByName(primary, "hidden primary max ammo bonus", GetConVarFloat(g_Cvar_ArrowCount) / 2.0);
+		TF2Attrib_SetByName(primary, "hidden primary max ammo bonus", GetConVarFloat(g_Cvar_ArrowCount) * 0.5);
 
 		healthDiff = (GetConVarInt(g_Cvar_StartingHealth) - 125);	}
 	
@@ -955,3 +974,19 @@ stock CleanupClientDirection(client, buttons, &Float:x, &Float:y, &Float:z)
 	y = clientEyeAngle[1];
 	z = clientEyeAngle[2];
 }
+
+public bool:MultiMod_CheckValidMap(const String:map[])
+{
+	if (StrContains(map, "mvm_", false) == -1)
+	{
+		return false;
+	}
+	
+	return true;
+}
+
+public MultiMod_StatusChanged(bool:enabled)
+{
+	SetConVarBool(g_Cvar_Enabled, enabled);
+}
+

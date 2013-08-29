@@ -348,6 +348,8 @@ public Cvar_Enabled(Handle:convar, const String:oldValue[], const String:newValu
 			continue;
 		}
 		
+		TF2Attrib_RemoveAll(i);
+		
 		if (IsPlayerAlive(i))
 		{
 			TF2_RemoveAllWeapons(i);
@@ -358,10 +360,7 @@ public Cvar_Enabled(Handle:convar, const String:oldValue[], const String:newValu
 				g_LastButtons[i] = 0;
 				g_JumpCharge[i] = 0;
 			}
-			else
-			{
-				TF2Attrib_RemoveAll(i);
-			}
+			
 			TF2_RespawnPlayer(i);
 		}
 	}

@@ -976,7 +976,7 @@ stock CleanupClientDirection(client, buttons, &Float:x, &Float:y, &Float:z)
 
 public bool:MultiMod_CheckValidMap(const String:map[])
 {
-	if (StrContains(map, "mvm_", false) == -1)
+	if (StrContains(map, "mvm_", false) != -1)
 	{
 		return false;
 	}

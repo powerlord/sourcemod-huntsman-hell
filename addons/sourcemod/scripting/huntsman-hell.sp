@@ -26,7 +26,7 @@
 #define JUMPCHARGETIME 1
 #define JUMPCHARGE (25 * JUMPCHARGETIME)
 
-#define VERSION "1.7.0"
+#define VERSION "1.7.1"
 
 public Plugin:myinfo = 
 {
@@ -39,7 +39,7 @@ public Plugin:myinfo =
 
 new String:g_Sounds_Explode[][] = {"weapons/explode1.wav", "weapons/explode2.wav", "weapons/explode3.wav" };
 new String:g_Sounds_Jump[][] = { "vo/sniper_specialcompleted02.wav", "vo/sniper_specialcompleted17.wav", "vo/sniper_specialcompleted19.wav", "vo/sniper_laughshort01.wav", "vo/sniper_laughshort04.wav" };
-new String:g_Sounds_MedicJump[][] = { "vo/medic_mvm_say_ready02.wav", "vo/medic_mvm_wave_end06.wav", "vo/medic_negativevocalization05.wav", "vo/medic_sf12_badmagic09.wav", "vo/medic_sf12_taunts03.wav" };
+new String:g_Sounds_MedicJump[][] = { "vo/medic_mvm_say_ready02.wav", "vo/medic_mvm_wave_end06.wav", "vo/medic_mvm_get_upgrade03.wav", "vo/medic_sf12_badmagic09.wav", "vo/medic_sf12_taunts03.wav" };
 
 new Handle:g_Cvar_Enabled = INVALID_HANDLE;
 new Handle:g_Cvar_Explode = INVALID_HANDLE;
@@ -56,8 +56,11 @@ new Handle:g_Cvar_FallDamage = INVALID_HANDLE;
 new Handle:g_Cvar_GameDescription = INVALID_HANDLE;
 new Handle:g_Cvar_MedicRound = INVALID_HANDLE;
 new Handle:g_Cvar_MedicArrowCount = INVALID_HANDLE;
+new Handle:g_Cvar_MedicStartingHealth = INVALID_HANDLE;
 
 new Handle:jumpHUD;
+
+new Handle:g_hJumpTimer = INVALID_HANDLE;
 
 new g_JumpCharge[MAXPLAYERS+1] = { 0, ... };
 
@@ -96,9 +99,11 @@ public OnPluginStart()
 	g_Cvar_GameDescription = CreateConVar("huntsmanhell_gamedescription", "1", "If SteamTools is loaded, set the Game Description to Huntsman Hell?", FCVAR_PLUGIN, true, 0.0, true, 1.0);
 	g_Cvar_MedicRound = CreateConVar("huntsmanhell_medicchance", "10", "Chance of the current round being a Medic round", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 100.0);
 	g_Cvar_MedicArrowCount = CreateConVar("huntsmanhell_medicarrowmultiplier", "1.32", "How many times the normal number of arrows should we have? Normal arrow count is 37.5 (banker rounded up to 38)", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0, true, 8.0);
+	g_Cvar_MedicStartingHealth = CreateConVar("huntsmanhell_medichealth", "300", "Amount of Health players to start with during Medic rounds", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 65.0, true, 800.0);
 
 	HookEvent("player_spawn", Event_PlayerSpawn);
 	HookEvent("teamplay_round_start", Event_RoundStart);
+	HookEvent("teamplay_round_win", Event_RoundEnd);
 	HookEvent("post_inventory_application", Event_Inventory);
 	//HookEvent("player_changeclass", Event_ChangeClass);
 	HookEvent("player_death", Event_Death, EventHookMode_Pre);
@@ -178,6 +183,15 @@ public OnMapStart()
 	for (new i = 0; i < sizeof(g_Sounds_MedicJump); ++i)
 	{
 		PrecacheSound(g_Sounds_MedicJump[i]);
+	}
+}
+
+public OnMapEnd()
+{
+	if (g_hJumpTimer != INVALID_HANDLE)
+	{
+		CloseHandle(g_hJumpTimer);
+		g_hJumpTimer = INVALID_HANDLE;
 	}
 }
 
@@ -337,8 +351,18 @@ public Cvar_Enabled(Handle:convar, const String:oldValue[], const String:newValu
 {
 	if (GetConVarBool(g_Cvar_Enabled))
 	{
+		ChooseMedicRound();
 		PrintToChatAll("%t", "login_help");
-		CreateTimer(0.2, JumpTimer, _, TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
+		if (g_hJumpTimer == INVALID_HANDLE)
+		{
+			CreateTimer(0.2, JumpTimer, _, TIMER_REPEAT);
+		}
+	}
+	else
+	{
+		// Stop the timer while we're not running
+		CloseHandle(g_hJumpTimer);
+		g_hJumpTimer = INVALID_HANDLE;
 	}
 	
 	for (new i = 1; i <= MaxClients; ++i)
@@ -355,13 +379,14 @@ public Cvar_Enabled(Handle:convar, const String:oldValue[], const String:newValu
 			TF2_RemoveAllWeapons(i);
 			if (GetConVarBool(g_Cvar_Enabled))
 			{
-				TF2_SetPlayerClass(i, TFClass_Sniper); // Might as well only respawn them once
+				//TF2_SetPlayerClass(i, TFClass_Sniper); // Might as well only respawn them once
 				g_bDoubleJumped[i] = false;
 				g_LastButtons[i] = 0;
 				g_JumpCharge[i] = 0;
 			}
 			
 			TF2_RespawnPlayer(i);
+			TF2_RegeneratePlayer(i);
 		}
 	}
 	
@@ -375,24 +400,30 @@ public Cvar_GameDescription(Handle:convar, const String:oldValue[], const String
 
 public OnConfigsExecuted()
 {
-	if (GetConVarBool(g_Cvar_Enabled))
+	if (!GetConVarBool(g_Cvar_Enabled))
 	{
-		if (g_bLateLoad)
-		{
-			for (new i = 1; i <= MaxClients; ++i)
-			{
-				if (IsClientInGame(i))
-				{
-					SDKHook(i, SDKHook_OnTakeDamagePost, OnTakeDamagePost);
-				}
-			}
-			g_bLateLoad = false;
-		}
-		
-		CreateTimer(0.2, JumpTimer, _, TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
-		
-		UpdateGameDescription(true);
+		return;
 	}
+	
+	if (g_bLateLoad)
+	{
+		for (new i = 1; i <= MaxClients; ++i)
+		{
+			if (IsClientInGame(i))
+			{
+				SDKHook(i, SDKHook_OnTakeDamagePost, OnTakeDamagePost);
+			}
+		}
+		g_bLateLoad = false;
+	}
+	
+	if (g_hJumpTimer == INVALID_HANDLE)
+	{
+		g_hJumpTimer = CreateTimer(0.2, JumpTimer, _, TIMER_REPEAT);
+	}
+	
+	UpdateGameDescription(true);
+	ChooseMedicRound();
 }
 
 UpdateGameDescription(bool:bAddOnly=false)
@@ -421,10 +452,24 @@ public OnClientPutInServer(client)
 {
 	SDKHook(client, SDKHook_OnTakeDamagePost, OnTakeDamagePost);
 	
-	if (GetConVarBool(g_Cvar_Enabled))
+	if (!GetConVarBool(g_Cvar_Enabled))
 	{
-		PrintToChat(client, "%t", "login_help");
+		return;
 	}
+	
+	new TFClassType:class;
+	if (g_bMedicRound)
+	{
+		class = TFClass_Medic;
+	}
+	else
+	{
+		class = TFClass_Sniper;
+	}
+	
+	SetEntProp(client, Prop_Send, "m_iDesiredPlayerClass", class);
+	
+	PrintToChat(client, "%t", "login_help");
 }
 
 public Action:Event_Death(Handle:event, const String:name[], bool:dontBroadcast)
@@ -457,18 +502,8 @@ public Action:Event_Death(Handle:event, const String:name[], bool:dontBroadcast)
 	return Plugin_Continue;
 }
 
-public Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
+ChooseMedicRound()
 {
-	if (!GetConVarBool(g_Cvar_Enabled))
-	{
-		return;
-	}
-	
-	for (new i = 1; i <= MaxClients; ++i)
-	{
-		g_JumpCharge[i] = 0;
-	}
-	
 	new percent = GetConVarInt(g_Cvar_MedicRound);
 	// Do a switch so we don't waste our time with random if it's always on or off.
 	switch (percent)
@@ -496,6 +531,28 @@ public Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
 			}
 			
 		}
+	}
+
+}
+
+public Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
+{
+	if (!GetConVarBool(g_Cvar_Enabled))
+	{
+		return;
+	}
+	
+	for (new i = 1; i <= MaxClients; ++i)
+	{
+		g_JumpCharge[i] = 0;
+	}
+}
+
+public Event_RoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
+{
+	if (!GetConVarBool(g_Cvar_Enabled))
+	{
+		ChooseMedicRound();
 	}
 }
 
@@ -527,6 +584,7 @@ public Event_PlayerSpawn(Handle:event, const String:name[], bool:dontBroadcast)
 			TF2_SetPlayerClass(client, TFClass_Medic, false); 
 			
 			TF2_RespawnPlayer(client);
+			TF2_RegeneratePlayer(client);
 		}
 	}
 	else
@@ -537,6 +595,7 @@ public Event_PlayerSpawn(Handle:event, const String:name[], bool:dontBroadcast)
 			TF2_SetPlayerClass(client, TFClass_Sniper, false); 
 			
 			TF2_RespawnPlayer(client);
+			TF2_RegeneratePlayer(client);
 		}
 	}
 
@@ -574,7 +633,7 @@ public Event_Inventory(Handle:event, const String:name[], bool:dontBroadcast)
 			TF2Items_SetNumAttributes(item, 3);
 			TF2Items_SetAttribute(item, 0, 199, 1.0); // "fires healing bolts"
 			TF2Items_SetAttribute(item, 1, 42, 1.0); // "sniper no headshots"
-			TF2Items_SetAttribute(item, 2, 97, 0.6); // "Reload time decreased"
+			TF2Items_SetAttribute(item, 2, 77, 0.25); // "maxammo primary reduced"
 			primary = TF2Items_GiveNamedItem(client, item);
 			CloseHandle(item);
 			EquipPlayerWeapon(client, primary);
@@ -583,7 +642,8 @@ public Event_Inventory(Handle:event, const String:name[], bool:dontBroadcast)
 		// Base is 150 and normally set to 0.25
 		TF2Attrib_SetByName(primary, "maxammo primary reduced", GetConVarFloat(g_Cvar_MedicArrowCount) * 0.25);
 		
-		healthDiff = (GetConVarInt(g_Cvar_StartingHealth) - 150);
+		// Medic base health is 150
+		healthDiff = (GetConVarInt(g_Cvar_MedicStartingHealth) - 150);
 	}
 	else
 	{
@@ -618,9 +678,9 @@ public Event_Inventory(Handle:event, const String:name[], bool:dontBroadcast)
 			TF2Items_SetItemIndex(item, 56);
 			TF2Items_SetLevel(item, 10);
 			TF2Items_SetQuality(item, 6);
-			TF2Items_SetNumAttributes(item, 1);
-			//TF2Items_SetAttribute(item, 0, 37, 0.5);
-			TF2Items_SetAttribute(item, 0, 328, 1.0);
+			TF2Items_SetNumAttributes(item, 2);
+			TF2Items_SetAttribute(item, 0, 37, 0.5);
+			TF2Items_SetAttribute(item, 1, 328, 1.0);
 			primary = TF2Items_GiveNamedItem(client, item); // disable fancy class select anim
 			CloseHandle(item);
 			EquipPlayerWeapon(client, primary);
@@ -628,6 +688,7 @@ public Event_Inventory(Handle:event, const String:name[], bool:dontBroadcast)
 		// Base is 25 and normally set to 0.50
 		TF2Attrib_SetByName(primary, "hidden primary max ammo bonus", GetConVarFloat(g_Cvar_ArrowCount) * 0.5);
 
+		// Sniper base health is 125
 		healthDiff = (GetConVarInt(g_Cvar_StartingHealth) - 125);	}
 	
 	if (healthDiff > 0)
@@ -638,11 +699,6 @@ public Event_Inventory(Handle:event, const String:name[], bool:dontBroadcast)
 	{
 		TF2Attrib_SetByName(client, "max health additive penalty", float(healthDiff));
 	}
-	
-//	if (GetConVarBool(g_Cvar_DoubleJump))
-//	{
-//		TF2Attrib_SetByName(client, "increased jump height", 1.5);
-//	}
 	
 	if (!GetConVarBool(g_Cvar_FallDamage))
 	{

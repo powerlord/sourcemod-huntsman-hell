@@ -83,4 +83,8 @@
 		"en"	"Players do not take fall damage"
 	}
 
+	"mode_name"
+	{
+		"en"	"Huntsman Hell"
+	}
 }

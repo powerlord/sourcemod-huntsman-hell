@@ -10,6 +10,8 @@
 #undef REQUIRE_EXTENSIONS
 #include <steamtools>
 
+// Include support for Opt-In MultiMod
+// Default: OFF
 //#define OIMM
 
 #if defined OIMM
@@ -448,7 +450,7 @@ UpdateGameDescription(bool:bAddOnly=false)
 		new String:gamemode[64];
 		if (GetConVarBool(g_Cvar_Enabled) && GetConVarBool(g_Cvar_GameDescription))
 		{
-			Format(gamemode, sizeof(gamemode), "%T v.%s", "mode_name", LANG_SERVER, VERSION);
+			Format(gamemode, sizeof(gamemode), "Huntsman Hell v.%s", VERSION);
 		}
 		else if (bAddOnly)
 		{

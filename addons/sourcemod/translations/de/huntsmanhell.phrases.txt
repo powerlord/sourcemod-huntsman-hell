@@ -79,4 +79,8 @@
 		"de"	"Spieler nehmen keinen Fallschaden"
 	}
 
+	"mode_name"
+	{
+		"de"	"Huntsman Hell"
+	}
 }

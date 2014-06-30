@@ -32,7 +32,7 @@
 #define JUMPCHARGETIME 1
 #define JUMPCHARGE (25 * JUMPCHARGETIME)
 
-#define VERSION "1.7.2"
+#define VERSION "1.7.3"
 
 public Plugin:myinfo = 
 {
@@ -133,7 +133,7 @@ public OnPluginEnd()
 {
 	if (g_bMultiMod)
 	{
-		OptInMultiMod_Unregister("Huntsman Hell");
+		OptInMultiMod_Unregister("huntsman-hell");
 	}
 }
 #endif
@@ -150,7 +150,7 @@ public OnAllPluginsLoaded()
 	g_bMultiMod = LibraryExists("optin_multimod");
 	if (g_bMultiMod)
 	{
-		OptInMultiMod_Register("Huntsman Hell", MultiMod_CheckValidMap, MultiMod_StatusChanged, MultiMod_TranslateName);
+		OptInMultiMod_Register("huntsman-hell", MultiMod_CheckValidMap, MultiMod_StatusChanged, MultiMod_TranslateName);
 	}
 #endif
 }
@@ -1055,7 +1055,7 @@ stock CleanupClientDirection(client, buttons, &Float:x, &Float:y, &Float:z)
 public bool:MultiMod_CheckValidMap(const String:map[])
 {
 	// Doesn't work so well on Mann Vs. Machine, Vs. Saxton Hale, or Prop Hunt maps
-	if (StrContains(map, "mvm_", false) != -1 || StrContains(map, "vsh_", false) != -1 || StrContains(map, "ph_", false) != -1)
+	if (StrContains(map, "mvm_", false) != -1 || StrContains(map, "vsh_", false) != -1 || StrContains(map, "ph_", false) != -1 || StrContains(map, "dr_", false) != -1)
 	{
 		return false;
 	}

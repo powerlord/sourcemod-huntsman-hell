@@ -1,0 +1,14 @@
+"oimm-commands"
+{
+	"name"		"Huntsman Hell"
+
+	"disable"
+	{
+		"1"	"huntsman_enabled 0"
+	}
+
+	"enable"
+	{
+		"1"	"huntsman_enabled 1"
+	}
+}

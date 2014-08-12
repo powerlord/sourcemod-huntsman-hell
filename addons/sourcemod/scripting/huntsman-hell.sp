@@ -567,7 +567,7 @@ public Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
 
 public Event_RoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
 {
-	if (!GetConVarBool(g_Cvar_Enabled))
+	if (GetConVarBool(g_Cvar_Enabled))
 	{
 		ChooseMedicRound();
 	}
